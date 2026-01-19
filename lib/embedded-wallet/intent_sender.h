@@ -1,0 +1,3 @@
+#ifndef C_SDK_INTENT_SENDER_H
+#define C_SDK_INTENT_SENDER_H
+#endif
