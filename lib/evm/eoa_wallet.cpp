@@ -76,26 +76,3 @@ static void hexprint(const char *label, const uint8_t *buf, size_t len) {
     for (size_t i = 0; i < len; i++) printf("%02x", buf[i]);
     printf("\n");
 }
-
-int main(void) {
-    secp256k1_context *ctx =
-        secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    if (!ctx) die("Failed to create secp256k1 context");
-
-    eoa_wallet_t wallet;
-    wallet_init_random(&wallet, ctx);
-
-    // Show private key
-    hexprint("priv (32): 0x", wallet.seckey, 32);
-
-    // Serialize pubkey (compressed 33 bytes)
-    uint8_t pub33[33];
-    size_t pub33_len = sizeof(pub33);
-    if (!secp256k1_ec_pubkey_serialize(ctx, pub33, &pub33_len, &wallet.pubkey, SECP256K1_EC_COMPRESSED)) {
-        die("pubkey serialize failed");
-    }
-    hexprint("pub  (33): 0x", pub33, pub33_len);
-
-    secp256k1_context_destroy(ctx);
-    return 0;
-}

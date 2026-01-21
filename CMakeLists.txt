@@ -6,11 +6,13 @@ set(CMAKE_C_STANDARD 99)
 add_executable(sequence-c-sdk main.c
         lib/networking/http_client.h
         lib/networking/http_client.c
-        lib/embedded-wallet/intent_sender.c
-        lib/embedded-wallet/intent_sender.h
         lib/evm/eoa_wallet.cpp
         lib/evm/eoa_wallet.h
-        lib/evm/eoa_wallet.h)
+        lib/evm/eoa_wallet.h
+        lib/embedded-wallet/sequence_wallet.h
+        lib/embedded-wallet/sequence_wallet.c
+        lib/embedded-wallet/sequence_login.c
+        lib/embedded-wallet/sequence_login.h)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib
@@ -26,7 +28,9 @@ target_link_libraries(sequence-c-sdk PRIVATE OpenSSL::Crypto)
 
 # ---- libsecp256k1 ----
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(SECP256K1 REQUIRED secp256k1)
+pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
+
+target_link_directories(sequence-c-sdk PRIVATE ${SECP256K1_LIBRARY_DIRS})
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${SECP256K1_INCLUDE_DIRS}

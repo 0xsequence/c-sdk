@@ -2,10 +2,11 @@
 
 ## Setup
 
-#### Install CMake
+#### Install dependencies
 
 ```shell
 arch -arm64 brew install cmake
+brew install secp256k1
 ```
 
 #### Initialize the build directory
