@@ -15,7 +15,9 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_login.h
         lib/embedded-wallet/sequence_login.c
         lib/embedded-wallet/intent_arguments.h
-        lib/embedded-wallet/intent_arguments.c)
+        lib/embedded-wallet/intent_arguments.c
+        lib/embedded-wallet/sequence_config.h
+        lib/embedded-wallet/sequence_config.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib

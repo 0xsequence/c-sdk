@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
+#include "../embedded-wallet/sequence_config.h"
 
 struct HttpClient {
     char *base_url;
@@ -136,6 +137,31 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
     struct curl_slist *newlist = curl_slist_append(c->default_headers, header_line);
     if (!newlist) return 0;
     c->default_headers = newlist;
+    return 1;
+}
+
+int http_add_sequence_access_key(HttpClient *c) {
+    if (!c || !sequence_config.access_key) {
+        return 0; /* no key configured */
+    }
+
+    const char *key = sequence_config.access_key;
+
+    /* "X-Access-Key: " (14 chars) + key + '\0' */
+    size_t len = strlen("X-Access-Key: ") + strlen(key) + 1;
+
+    char *header = (char *)malloc(len);
+    if (!header) return -1;
+
+    snprintf(header, len, "X-Access-Key: %s", key);
+
+    /* http_client_add_header is expected to copy or take ownership */
+    http_client_add_header(c, header);
+
+    /* If http_client_add_header copies the string, free here.
+       If it takes ownership, DO NOT free. Adjust accordingly. */
+    free(header);
+
     return 1;
 }
 

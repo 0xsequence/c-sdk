@@ -2,6 +2,7 @@
 #include <string.h>
 #include "lib/networking/http_client.h"
 #include "lib/evm/eoa_wallet.h"
+#include "lib/embedded-wallet/sequence_config.h"
 #include "lib/embedded-wallet/sequence_login.h"
 #include "lib/embedded-wallet/sequence_wallet.h"
 
@@ -21,6 +22,8 @@ static void hexprint(const char *label, const unsigned char *buf, size_t len) {
 }
 
 int main(void) {
+    sequence_config_init("oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
+
     char email[256];
     char code[64];
 

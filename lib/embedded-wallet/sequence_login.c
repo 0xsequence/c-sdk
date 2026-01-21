@@ -50,21 +50,23 @@ int sign_in_with_email(const char *email) {
         return 1;
     }
 
+    http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
-    http_client_add_header(c, "X-Access-Key: oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
 
     char *json = sequence_build_initiate_auth_intent_json(
       email,
       "",
       "0x001e...",
       1769005042LL,
-      1769005072LL,
+      1869005072LL,
       "0x001e...",
       "0x5b08...",
       "1 (C 1.0.0)",
       NULL,
       NULL
     );
+
+    printf("%s", json);
 
     HttpResponse r = http_client_post_json(c, "/SendIntent", json, 10000);
 
@@ -99,15 +101,15 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
+    http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
-    http_client_add_header(c, "X-Access-Key: oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
 
     char *json = sequence_build_initiate_auth_intent_json(
       email,
       "",
       "0x001e...",
       1769005042LL,
-      1769005072LL,
+      1869005072LL,
       "0x001e...",
       "0x5b08...",
       "1 (C 1.0.0)",
