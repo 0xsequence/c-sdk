@@ -1,4 +1,5 @@
 #include "sequence_login.h"
+#include "intent_arguments.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -43,17 +44,29 @@ int sign_in_with_email(const char *email) {
         return 0;
     }
 
-    HttpClient *c = http_client_create("https://httpbin.org");
+    HttpClient *c = http_client_create("waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return 1;
     }
 
     http_client_add_header(c, "Accept: application/json");
+    http_client_add_header(c, "X-Access-Key: oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
 
-    const char *json = "{\"hello\":\"world\"}";
+    char *json = sequence_build_initiate_auth_intent_json(
+      email,
+      "",
+      "0x001e...",
+      1769005042LL,
+      1769005072LL,
+      "0x001e...",
+      "0x5b08...",
+      "1 (C 1.0.0)",
+      NULL,
+      NULL
+    );
 
-    HttpResponse r = http_client_post_json(c, "/post", json, 10000);
+    HttpResponse r = http_client_post_json(c, "/SendIntent", json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
@@ -80,17 +93,29 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
-    HttpClient *c = http_client_create("https://httpbin.org");
+    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return NULL;
     }
 
     http_client_add_header(c, "Accept: application/json");
+    http_client_add_header(c, "X-Access-Key: oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
 
-    const char *json = "{\"hello\":\"world\"}";
+    char *json = sequence_build_initiate_auth_intent_json(
+      email,
+      "",
+      "0x001e...",
+      1769005042LL,
+      1769005072LL,
+      "0x001e...",
+      "0x5b08...",
+      "1 (C 1.0.0)",
+      code,
+      NULL
+    );
 
-    HttpResponse r = http_client_post_json(c, "/post", json, 10000);
+    HttpResponse r = http_client_post_json(c, "/RegisterSession", json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
