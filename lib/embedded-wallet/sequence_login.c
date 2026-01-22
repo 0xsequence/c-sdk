@@ -44,7 +44,7 @@ int sign_in_with_email(const char *email) {
         return 0;
     }
 
-    HttpClient *c = http_client_create("waas.sequence.app/rpc/WaasAuthenticator");
+    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return 1;
@@ -95,7 +95,7 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
-    HttpClient *c = http_client_create("waas.sequence.app/rpc/WaasAuthenticator");
+    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return NULL;

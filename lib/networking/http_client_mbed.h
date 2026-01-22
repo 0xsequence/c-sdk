@@ -1,3 +1,5 @@
+#if MBED_TLS
+
 #pragma once
 #include <stddef.h>
 
@@ -27,3 +29,4 @@ HttpResponse http_client_post_json(HttpClient *c,
                                    long timeout_ms);
 
 void http_response_free(HttpResponse *r);
+#endif

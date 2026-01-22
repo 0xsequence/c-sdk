@@ -1,3 +1,5 @@
+#if MBED_TLS
+
 #include "http_client.h"
 #include <stdlib.h>
 #include <string.h>
@@ -650,3 +652,5 @@ void http_response_free(HttpResponse *r) {
     free(r->error);
     memset(r, 0, sizeof(*r));
 }
+
+#endif
