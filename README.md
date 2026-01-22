@@ -9,6 +9,20 @@ arch -arm64 brew install cmake
 brew install secp256k1
 ```
 
+For armcc support, install mbedtls via vcpkg.
+
+```shell
+// vcpkg
+cd ~
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+sh bootstrap-vcpkg.sh
+export PATH="$HOME/vcpkg:$PATH"
+
+// Mbed TLS
+vcpkg install mbedtls
+```
+
 #### Initialize the build directory
 
 ```shell

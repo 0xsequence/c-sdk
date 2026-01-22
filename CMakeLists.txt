@@ -17,10 +17,22 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/intent_arguments.h
         lib/embedded-wallet/intent_arguments.c
         lib/embedded-wallet/sequence_config.h
-        lib/embedded-wallet/sequence_config.c)
+        lib/embedded-wallet/sequence_config.c
+        lib/networking/http_client_mbed.h
+        lib/networking/http_client_mbed.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib
+)
+
+# ---- MBed TLS ----
+
+find_package(MbedTLS CONFIG REQUIRED)
+
+target_link_libraries(sequence-c-sdk PRIVATE
+        MbedTLS::mbedtls
+        MbedTLS::mbedx509
+        MbedTLS::mbedcrypto
 )
 
 # ---- CURL ----
