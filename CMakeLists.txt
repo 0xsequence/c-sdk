@@ -19,7 +19,11 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_config.h
         lib/embedded-wallet/sequence_config.c
         lib/networking/http_client_mbed.h
-        lib/networking/http_client_mbed.c)
+        lib/networking/http_client_mbed.c
+        lib/embedded-wallet/sequence_contract_call.h
+        lib/embedded-wallet/sequence_contract_call.c
+        lib/indexer/get_token_balances.h
+        lib/indexer/get_token_balances.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib
