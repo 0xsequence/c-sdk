@@ -1,12 +1,10 @@
 #include "sequence_login.h"
-#include "intent_arguments.h"
+#include "requests/intent_arguments.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* --------- tiny helpers --------- */
 
 static int is_reasonable_email(const char *email) {
     if (!email) return 0;

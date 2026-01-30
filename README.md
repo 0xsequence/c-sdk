@@ -20,7 +20,14 @@ sh bootstrap-vcpkg.sh
 export PATH="$HOME/vcpkg:$PATH"
 
 // Mbed TLS
+// If necessary, add it to your CMAKE_PREFIX_PATH
 vcpkg install mbedtls
+```
+
+cJSON
+
+```shell
+brew install cjson
 ```
 
 #### Initialize the build directory

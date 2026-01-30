@@ -14,8 +14,8 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_login.c
         lib/embedded-wallet/sequence_login.h
         lib/embedded-wallet/sequence_login.c
-        lib/embedded-wallet/intent_arguments.h
-        lib/embedded-wallet/intent_arguments.c
+        lib/embedded-wallet/requests/intent_arguments.h
+        lib/embedded-wallet/requests/intent_arguments.c
         lib/embedded-wallet/sequence_config.h
         lib/embedded-wallet/sequence_config.c
         lib/networking/http_client_mbed.h
@@ -23,7 +23,19 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_contract_call.h
         lib/embedded-wallet/sequence_contract_call.c
         lib/indexer/get_token_balances.h
-        lib/indexer/get_token_balances.c)
+        lib/indexer/get_token_balances.c
+        lib/chains/chain_bindings.h
+        lib/chains/chain_bindings.c
+        lib/storage/storage_handler.h
+        lib/storage/storage_handler.c
+        lib/storage/mmi_file_storage.h
+        lib/storage/mmi_file_storage.c
+        lib/indexer/requests/get_token_balances_args.h
+        lib/indexer/requests/get_token_balances_args.c
+        lib/indexer/models/page.h
+        lib/indexer/models/balance.h
+        lib/indexer/requests/get_token_balances_return.h
+        lib/indexer/requests/get_token_balances_return.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib
@@ -33,10 +45,13 @@ target_include_directories(sequence-c-sdk PRIVATE
 
 find_package(MbedTLS CONFIG REQUIRED)
 
+get_property(_imported DIRECTORY PROPERTY IMPORTED_TARGETS)
+message(STATUS "Imported targets: ${_imported}")
+
 target_link_libraries(sequence-c-sdk PRIVATE
         MbedTLS::mbedtls
         MbedTLS::mbedx509
-        MbedTLS::mbedcrypto
+        MbedTLS::tfpsacrypto
 )
 
 # ---- CURL ----

@@ -8,9 +8,6 @@ static int is_nonempty(const char *s) {
     return (s != NULL && s[0] != '\0');
 }
 
-/*
- * See header for behavior.
- */
 char *sequence_build_initiate_auth_intent_json(
     const char *email,
     const char *metadata,

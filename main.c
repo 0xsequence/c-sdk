@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "lib/networking/http_client.h"
-#include "lib/evm/eoa_wallet.h"
+#include "lib/indexer/get_token_balances.h"
 #include "lib/embedded-wallet/sequence_config.h"
 #include "lib/embedded-wallet/sequence_login.h"
 #include "lib/embedded-wallet/sequence_wallet.h"
@@ -23,6 +22,9 @@ static void hexprint(const char *label, const unsigned char *buf, size_t len) {
 
 int main(void) {
     sequence_config_init("oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
+
+    SequenceGetTokenBalancesReturn *tokenBalances = sequence_get_token_balances(137, "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", "0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9", true);
+    free_sequence_token_balances_return(tokenBalances);
 
     char email[256];
     char code[64];
