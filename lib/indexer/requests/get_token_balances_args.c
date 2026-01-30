@@ -7,8 +7,7 @@
 char *sequence_build_get_token_balances_args(
     const char *contract_address,
     const char *account_address,
-    bool include_metadata
-)
+    bool include_metadata)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON *page = cJSON_CreateObject();

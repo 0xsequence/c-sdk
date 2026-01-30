@@ -4,6 +4,7 @@
 #include "lib/embedded-wallet/sequence_config.h"
 #include "lib/embedded-wallet/sequence_login.h"
 #include "lib/embedded-wallet/sequence_wallet.h"
+#include "lib/evm/sign_message.h"
 
 static void strip_newline(char *s) {
     if (!s) return;
@@ -62,6 +63,9 @@ int main(void) {
         sequence_wallet_clear(wallet);
         return 1;
     }
+
+    /*char *sig = wallet_sign_string_hex_eip191(w.seckey, ctx, "0x1234", NULL, 0);
+    printf("sig = %s\n", sig);*/
 
     hexprint("Public key (65, uncompressed): 0x", pub65, pub_len);
 

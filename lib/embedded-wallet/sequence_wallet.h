@@ -13,6 +13,7 @@ extern "C" {
     typedef struct sequence_wallet {
         uint8_t seckey[32];
         secp256k1_pubkey pubkey;
+        secp256k1_context *ctx;
     } sequence_wallet_t;
 
     /*
@@ -32,6 +33,11 @@ extern "C" {
         const sequence_wallet_t *wallet,
         uint8_t *out,
         int compressed
+    );
+
+    char *sequence_wallet_get_address(
+        secp256k1_context *ctx,
+        secp256k1_pubkey *pubkey
     );
 
     /* Wipe private key material in memory. */

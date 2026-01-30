@@ -1,10 +1,17 @@
 #include "sequence_login.h"
-#include "requests/intent_arguments.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "evm/sign_message.h"
+#include "requests/build_intent_json.h"
+#include "requests/build_initiate_auth_intent_json.h"
+#include "requests/build_open_session_intent_json.h"
+#include "../utils/timestamps.h"
+#include "utils/byte_utils.h"
+#include "utils/hex_utils.h"
 
 static int is_reasonable_email(const char *email) {
     if (!email) return 0;
@@ -34,8 +41,6 @@ static int is_reasonable_code(const char *code) {
     return 1;
 }
 
-/* --------- public API --------- */
-
 int sign_in_with_email(const char *email) {
     if (!is_reasonable_email(email)) {
         fprintf(stderr, "sign_in_with_email: invalid email\n");
@@ -51,22 +56,54 @@ int sign_in_with_email(const char *email) {
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
-    char *json = sequence_build_initiate_auth_intent_json(
-      email,
-      "",
-      "0x001e...",
-      1769005042LL,
-      1869005072LL,
-      "0x001e...",
-      "0x5b08...",
-      "1 (C 1.0.0)",
-      NULL,
-      NULL
+    sequence_wallet_t *wallet = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
+    if (!wallet) return -1;
+
+    if (!sequence_wallet_initialize(wallet)) {
+        free(wallet);
+        return -1;
+    }
+
+    const char *address = sequence_wallet_get_address(wallet->ctx, &wallet->pubkey);
+
+    size_t addr_len;
+    uint8_t *addr = hex_to_bytes(
+        address,
+        &addr_len
     );
 
-    printf("%s", json);
+    size_t new_len;
+    uint8_t *padded = prepend_zero(addr, 20, &new_len);
 
-    HttpResponse r = http_client_post_json(c, "/SendIntent", json, 10000);
+    char *session_id = bytes_to_hex(padded, new_len);
+
+    printf("Public address: %s\n", session_id);
+
+    cJSON *intent_data = sequence_build_initiate_auth_intent_json(
+      email,
+      "",
+      session_id
+    );
+
+    char *to_sign = cJSON_PrintUnformatted(intent_data);
+
+    const char *sig = wallet_sign_string_hex_eip191(wallet->seckey, wallet->ctx, to_sign);
+
+    long issuedAt = timestamp_now_seconds();
+    long expiresAt = timestamp_seconds_from_now(3600);
+
+    char *intent_json = sequence_build_intent_json(
+        intent_data,
+        "initiateAuth",
+        issuedAt,
+        expiresAt,
+        session_id,
+        sig
+    );
+
+    printf(">> %s", intent_json);
+
+    HttpResponse r = http_client_post_json(c, "/SendIntent", intent_json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
@@ -102,20 +139,42 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
-    char *json = sequence_build_initiate_auth_intent_json(
+    sequence_wallet_t *wallet = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
+    if (!wallet) return NULL;
+
+    if (!sequence_wallet_initialize(wallet)) {
+        free(wallet);
+        return NULL;
+    }
+
+    const char *address = sequence_wallet_get_address(wallet->ctx, &wallet->pubkey);
+
+    const char *session_id_hex = address;
+
+    cJSON *open_session_data = sequence_build_open_session_intent_json(
       email,
       "",
-      "0x001e...",
-      1769005042LL,
-      1869005072LL,
-      "0x001e...",
-      "0x5b08...",
-      "1 (C 1.0.0)",
-      code,
-      NULL
+      session_id_hex,
+      code
     );
 
-    HttpResponse r = http_client_post_json(c, "/RegisterSession", json, 10000);
+    char *to_sign = cJSON_PrintUnformatted(open_session_data);
+
+    const char *sig = wallet_sign_string_hex_eip191(wallet->seckey, wallet->ctx, to_sign);
+
+    long issuedAt = timestamp_now_seconds();
+    long expiresAt = timestamp_seconds_from_now(3600);
+
+    char *intent_json = sequence_build_intent_json(
+        open_session_data,
+        "openSession",
+        issuedAt,
+        expiresAt,
+        session_id_hex,
+        sig
+    );
+
+    HttpResponse r = http_client_post_json(c, "/RegisterSession", intent_json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
@@ -129,14 +188,6 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
 
     http_response_free(&r);
     http_client_destroy(c);
-
-    sequence_wallet_t *wallet = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
-    if (!wallet) return NULL;
-
-    if (!sequence_wallet_initialize(wallet)) {
-        free(wallet);
-        return NULL;
-    }
 
     return wallet;
 }

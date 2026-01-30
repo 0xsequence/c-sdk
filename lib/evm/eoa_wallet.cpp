@@ -1,21 +1,24 @@
+#include "eoa_wallet.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <secp256k1.h>
-
-// OpenSSL for SHA-256
-#include <openssl/sha.h>
-
-typedef struct {
-    uint8_t seckey[32];
-    secp256k1_pubkey pubkey;
-} eoa_wallet_t;
+#include <mbedtls/md.h>
+#include <mbedtls/platform_util.h>
 
 static void die(const char *msg) {
     fprintf(stderr, "%s\n", msg);
     exit(1);
+}
+
+static void sha256_mbedtls(const uint8_t *buf, size_t len, uint8_t digest[32]) {
+    const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    if (!info) die("MBEDTLS_MD_SHA256 not available (check config)");
+
+    int rc = mbedtls_md(info, buf, len, digest);
+    if (rc != 0) die("mbedtls_md(SHA256) failed");
 }
 
 // Simple Unix-like secure RNG. For production portability:
@@ -43,12 +46,12 @@ static void derive_seckey_from_seed64(
         buf[64] = (uint8_t)(counter & 0xFF);
 
         uint8_t digest[32];
-        SHA256(buf, sizeof(buf), digest);
+        sha256_mbedtls(buf, sizeof(buf), digest);
 
         if (secp256k1_ec_seckey_verify(ctx, digest)) {
             memcpy(seckey_out, digest, 32);
             // best effort wipe
-            OPENSSL_cleanse(digest, sizeof(digest));
+            mbedtls_platform_zeroize(digest, sizeof(digest));
             return;
         }
     }
@@ -56,19 +59,39 @@ static void derive_seckey_from_seed64(
     die("Failed to derive a valid secret key (unexpected)");
 }
 
-static void wallet_init_random(eoa_wallet_t *w, secp256k1_context *ctx) {
-    // Match your pattern: generate a 64-byte seed, then derive the key.
-    uint8_t seed64[64];
-    os_random_bytes(seed64, sizeof(seed64));
+int eoa_wallet_init_random(eoa_wallet_t *wallet, secp256k1_context *ctx) {
+    if (!wallet || !ctx) return 0;
+    memset(wallet, 0, sizeof(*wallet));
 
-    derive_seckey_from_seed64(ctx, seed64, w->seckey);
+    /* 1) Generate valid private key */
+    do {
+        random32(wallet->seckey);
+    } while (!secp256k1_ec_seckey_verify(ctx, wallet->seckey));
 
-    if (!secp256k1_ec_pubkey_create(ctx, &w->pubkey, w->seckey)) {
-        die("secp256k1_ec_pubkey_create failed");
+    /* 2) Derive pubkey */
+    if (!secp256k1_ec_pubkey_create(ctx, &wallet->pubkey, wallet->seckey)) {
+        eoa_wallet_clear(wallet);
+        return 0;
     }
 
-    // best effort wipe seed
-    OPENSSL_cleanse(seed64, sizeof(seed64));
+    /* 3) Serialize uncompressed pubkey (65 bytes: 0x04 || X || Y) */
+    uint8_t pub65[65];
+    size_t pub65_len = sizeof(pub65);
+    if (!secp256k1_ec_pubkey_serialize(
+            ctx, pub65, &pub65_len, &wallet->pubkey, SECP256K1_EC_UNCOMPRESSED)) {
+        eoa_wallet_clear(wallet);
+        return 0;
+            }
+
+    /* 4) Compute address = last 20 bytes of hash(pubkey[1..64]) */
+    uint8_t hash[32];
+    if (!sha3_256(hash, pub65 + 1, 64)) {
+        eoa_wallet_clear(wallet);
+        return 0;
+    }
+
+    memcpy(wallet->address, hash + 12, 20);
+    return 1;
 }
 
 static void hexprint(const char *label, const uint8_t *buf, size_t len) {

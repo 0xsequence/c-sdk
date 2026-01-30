@@ -14,8 +14,8 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_login.c
         lib/embedded-wallet/sequence_login.h
         lib/embedded-wallet/sequence_login.c
-        lib/embedded-wallet/requests/intent_arguments.h
-        lib/embedded-wallet/requests/intent_arguments.c
+        lib/embedded-wallet/requests/build_initiate_auth_intent_json.h
+        lib/embedded-wallet/requests/build_initiate_auth_intent_json.c
         lib/embedded-wallet/sequence_config.h
         lib/embedded-wallet/sequence_config.c
         lib/networking/http_client_mbed.h
@@ -28,14 +28,25 @@ add_executable(sequence-c-sdk main.c
         lib/chains/chain_bindings.c
         lib/storage/storage_handler.h
         lib/storage/storage_handler.c
-        lib/storage/mmi_file_storage.h
-        lib/storage/mmi_file_storage.c
         lib/indexer/requests/get_token_balances_args.h
         lib/indexer/requests/get_token_balances_args.c
         lib/indexer/models/page.h
         lib/indexer/models/balance.h
         lib/indexer/requests/get_token_balances_return.h
-        lib/indexer/requests/get_token_balances_return.c)
+        lib/indexer/requests/get_token_balances_return.c
+        lib/utils/timestamps.h
+        lib/evm/keccak256.h
+        lib/evm/keccak256.c
+        lib/evm/sign_message.h
+        lib/evm/sign_message.c
+        lib/embedded-wallet/requests/build_intent_json.h
+        lib/embedded-wallet/requests/build_intent_json.c
+        lib/utils/hex_utils.h
+        lib/embedded-wallet/requests/build_open_session_intent_json.c
+        lib/utils/hex_utils.c
+        lib/utils/timestamps.c
+        lib/utils/byte_utils.c
+        lib/utils/byte_utils.h)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib
