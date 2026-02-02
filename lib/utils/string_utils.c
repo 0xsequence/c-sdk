@@ -1,0 +1,28 @@
+#include <stdlib.h>
+#include <string.h>
+
+char *replace_value(const char *template, const char *value)
+{
+    const char *placeholder = "{value}";
+    const size_t ph_len = 7;
+
+    const char *pos = strstr(template, placeholder);
+    if (!pos) return NULL;
+
+    size_t out_len =
+        strlen(template)
+        - ph_len
+        + strlen(value)
+        + 1;
+
+    char *out = malloc(out_len);
+    if (!out) return NULL;
+
+    size_t prefix_len = pos - template;
+
+    memcpy(out, template, prefix_len);
+    memcpy(out + prefix_len, value, strlen(value));
+    strcpy(out + prefix_len + strlen(value), pos + ph_len);
+
+    return out;
+}

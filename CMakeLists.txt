@@ -20,8 +20,6 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_config.c
         lib/networking/http_client_mbed.h
         lib/networking/http_client_mbed.c
-        lib/embedded-wallet/sequence_contract_call.h
-        lib/embedded-wallet/sequence_contract_call.c
         lib/indexer/get_token_balances.h
         lib/indexer/get_token_balances.c
         lib/chains/chain_bindings.h
@@ -46,7 +44,12 @@ add_executable(sequence-c-sdk main.c
         lib/utils/hex_utils.c
         lib/utils/timestamps.c
         lib/utils/byte_utils.c
-        lib/utils/byte_utils.h)
+        lib/utils/byte_utils.h
+        lib/utils/string_utils.h
+        lib/utils/string_utils.c
+        lib/embedded-wallet/requests/build_contract_call_intent_json.c
+        "lib/embedded-wallet/transactions/contract_call.h"
+        lib/embedded-wallet/transactions/contract_call.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib

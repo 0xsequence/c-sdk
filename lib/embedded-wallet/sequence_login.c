@@ -10,6 +10,8 @@
 #include "requests/build_initiate_auth_intent_json.h"
 #include "requests/build_open_session_intent_json.h"
 #include "../utils/timestamps.h"
+#include "evm/keccak256.h"
+#include "networking/http_client.h"
 #include "utils/byte_utils.h"
 #include "utils/hex_utils.h"
 
@@ -87,7 +89,26 @@ int sign_in_with_email(const char *email) {
 
     char *to_sign = cJSON_PrintUnformatted(intent_data);
 
+    uint8_t bytes[32];
+
+    size_t len = string_to_bytes(to_sign, bytes, sizeof(bytes));
+
+    printf("Bytes for to_sign (%zu):\n", len);
+    for (size_t i = 0; i < len; i++) {
+        printf("0x%02X ", bytes[i]);
+    }
+    printf("\n");
+
+    uint8_t hashed_to_sign[32];
+    keccak256(bytes, sizeof(bytes), hashed_to_sign);
+
+    char *hashed_to_sign_hex = bytes_to_hex(hashed_to_sign, sizeof(hashed_to_sign));
+
+    printf("data ready to sign: %s\n", hashed_to_sign_hex);
+
     const char *sig = wallet_sign_string_hex_eip191(wallet->seckey, wallet->ctx, to_sign);
+
+    printf("signature: %s\n", sig);
 
     long issuedAt = timestamp_now_seconds();
     long expiresAt = timestamp_seconds_from_now(3600);

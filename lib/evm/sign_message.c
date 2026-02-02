@@ -46,7 +46,7 @@ static size_t u64_to_dec(char *dst, size_t dstcap, uint64_t v) {
 // Builds: "\x19Ethereum Signed Message:\n" + dec(len) + message
 // Returns malloc'd buffer and length via out_len.
 static uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size_t *out_len) {
-    static const char prefix[] = "Ethereum Signed Message:";
+    static const char prefix[] = "\x19" "Ethereum Signed Message:\n";
 
     char len_dec[32];
     size_t len_dec_n = u64_to_dec(len_dec, sizeof(len_dec), (uint64_t)msg_len);
@@ -70,26 +70,31 @@ static uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size
 char *wallet_sign_message_hex_eip191(
     const uint8_t seckey32[32],
     secp256k1_context *ctx,
-    const uint8_t *message, size_t message_len
+    const uint8_t *message, size_t message_len,
+    const uint8_t *chainId, size_t chainId_len
 ) {
     if (!seckey32 || !ctx || (!message && message_len != 0)) die("bad args");
 
-    // 1) Optional message || chainId
-    uint8_t *msg2 = NULL;
-    size_t msg2_len = message_len;
+    // 1) message2 = message || chainId (if provided)
+    size_t msg2_len = message_len + ((chainId && chainId_len) ? chainId_len : 0);
+    uint8_t *msg2 = (uint8_t *)malloc(msg2_len);
+    if (!msg2) die("malloc failed");
 
-    // 2) Prefix
+    size_t off = 0;
+    if (message_len) { memcpy(msg2 + off, message, message_len); off += message_len; }
+    if (chainId && chainId_len) { memcpy(msg2 + off, chainId, chainId_len); off += chainId_len; }
+
+    // 2) Prefix using msg2_len (matches C# which prefixes after concatenation)
     size_t pref_len = 0;
-    uint8_t *pref = prefixed_message_malloc(message, message_len, &pref_len);
+    uint8_t *pref = prefixed_message_malloc(msg2, msg2_len, &pref_len);
 
     // 3) Keccak-256
     uint8_t digest32[32];
     keccak256(pref, pref_len, digest32);
 
-    // cleanup prefix buffers
-    memset(pref, 0, pref_len);
-    free(pref);
-    if (msg2) { memset(msg2, 0, msg2_len); free(msg2); }
+    // cleanup
+    memset(pref, 0, pref_len); free(pref);
+    memset(msg2, 0, msg2_len); free(msg2);
 
     // 4) Sign recoverable
     secp256k1_ecdsa_recoverable_signature rsig;
@@ -98,36 +103,32 @@ char *wallet_sign_message_hex_eip191(
         die("secp256k1_ecdsa_sign_recoverable failed");
     }
 
-    // 5) Serialize r,s and recovery id
+    // 5) Serialize r,s and recid
     uint8_t compact64[64];
     int recid = 0;
     secp256k1_ecdsa_recoverable_signature_serialize_compact(ctx, compact64, &recid, &rsig);
 
-    // 6) Enforce low-s (Ethereum standard) and fix recid if s was negated
-    // Convert to normal sig, normalize, and if changed => recid ^= 1
+    // 6) Enforce low-s (Ethereum standard) and fix recid if normalized
     secp256k1_ecdsa_signature nsig, nsig_norm;
     secp256k1_ecdsa_recoverable_signature_convert(ctx, &nsig, &rsig);
     int changed = secp256k1_ecdsa_signature_normalize(ctx, &nsig_norm, &nsig);
     if (changed) {
-        // Re-serialize normalized signature back to compact64 (r||s)
         secp256k1_ecdsa_signature_serialize_compact(ctx, compact64, &nsig_norm);
         recid ^= 1;
     }
 
-    // 7) Build final signature: r(32) || s(32) || v(1)
+    // 7) r||s||v, v in {27,28}
     uint8_t sig65[65];
     memcpy(sig65, compact64, 64);
-    sig65[64] = (uint8_t)(recid + 27); // ethers-style v
+    sig65[64] = (uint8_t)(recid + 27);
 
-    // 8) Hex encode with 0x prefix
     char *hex = hex_encode0x_malloc(sig65, 65);
 
-    // best-effort wipe stack buffers
     memset(digest32, 0, sizeof(digest32));
     memset(compact64, 0, sizeof(compact64));
     memset(sig65, 0, sizeof(sig65));
 
-    return hex; // caller must free()
+    return hex;
 }
 
 // Convenience: string treated as UTF-8 bytes (like ethers signMessage(string)).
@@ -139,5 +140,5 @@ char *wallet_sign_string_hex_eip191(
     if (!utf8_string) die("null string");
     const uint8_t *msg = (const uint8_t *)utf8_string;
     size_t msg_len = strlen(utf8_string);
-    return wallet_sign_message_hex_eip191(seckey32, ctx, msg, msg_len);
+    return wallet_sign_message_hex_eip191(seckey32, ctx, msg, msg_len, NULL, 0);
 }

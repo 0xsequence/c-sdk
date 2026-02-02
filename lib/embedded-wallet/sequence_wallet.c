@@ -33,6 +33,8 @@ int sequence_wallet_initialize(sequence_wallet_t *wallet) {
         /* If random32 failed, seckey might be all zeros; loop will reject it */
     } while (!secp256k1_ec_seckey_verify(wallet->ctx, wallet->seckey));
 
+    printf("key %s", bytes_to_hex(wallet->seckey, sizeof(wallet->seckey)));
+
     /* 2) Derive public key */
     int ok = secp256k1_ec_pubkey_create(wallet->ctx, &wallet->pubkey, wallet->seckey);
 

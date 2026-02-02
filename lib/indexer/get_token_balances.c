@@ -4,6 +4,7 @@
 
 #include "requests/get_token_balances_args.h"
 #include "../chains/chain_bindings.h"
+#include "../utils/string_utils.h"
 #include "../networking/http_client.h"
 
 #include <string.h>
@@ -18,7 +19,10 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
     SequenceGetTokenBalancesReturn *out;
     out->status = -1;
 
-    HttpClient *c = http_client_create("https://polygon-indexer.sequence.app/rpc/Indexer/");
+    const char *chain_name = sequence_get_chain_name(chain_id);
+    const char *host = replace_value("https://{value}-indexer.sequence.app/rpc/Indexer/", chain_name);
+
+    HttpClient *c = http_client_create(host);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return out;

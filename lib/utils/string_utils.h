@@ -1,0 +1,1 @@
+char *replace_value(const char *template, const char *value);

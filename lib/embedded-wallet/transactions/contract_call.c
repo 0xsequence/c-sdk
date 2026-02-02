@@ -1,4 +1,5 @@
-#include "sequence_contract_call.h"
+#include "contract_call.h"
+#include "embedded-wallet/requests/build_contract_call_intent_json.h"
 
 #include <string.h>
 #include <stdlib.h>
