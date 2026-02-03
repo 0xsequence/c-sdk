@@ -92,7 +92,7 @@ int main(void) {
 
     char *hash = sequence_contract_call(
         wallet,
-        chain_id,
+        chain_id_mint,
         contract_address_mint,
         0,
         function_signature,

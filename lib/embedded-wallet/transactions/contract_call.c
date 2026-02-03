@@ -104,6 +104,8 @@ char *sequence_contract_call(
         sig
     );
 
+	printf("Intent JSON: %s\n", intent_json);
+
     HttpResponse r = http_client_post_json(c, "/SendIntent", intent_json, 10000);
 
     if (r.error) {
@@ -111,6 +113,8 @@ char *sequence_contract_call(
         http_response_free(&r);
         http_client_destroy(c);
     }
+
+	printf("ContractCall Response: %s\n", r.body);
 
 	SequenceTransactionResult *result = sequence_build_transaction_intent_return(r.body);
 	if (!result) {
