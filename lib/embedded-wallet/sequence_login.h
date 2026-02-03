@@ -19,6 +19,3 @@ int sign_in_with_email(const char *email);
  *   NULL on failure
  */
 sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code);
-
-/* Frees a wallet returned by confirm_email_sign_in */
-void sequence_wallet_free(sequence_wallet_t *wallet);

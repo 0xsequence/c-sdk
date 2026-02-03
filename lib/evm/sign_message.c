@@ -73,12 +73,14 @@ char *wallet_sign_message_hex_eip191(
     const uint8_t *message, size_t message_len,
     const uint8_t *chainId, size_t chainId_len
 ) {
-    if (!seckey32 || !ctx || (!message && message_len != 0)) die("bad args");
+    if (!seckey32 || !ctx || (!message && message_len != 0))
+        die("bad args");
 
     // 1) message2 = message || chainId (if provided)
     size_t msg2_len = message_len + ((chainId && chainId_len) ? chainId_len : 0);
     uint8_t *msg2 = (uint8_t *)malloc(msg2_len);
-    if (!msg2) die("malloc failed");
+    if (!msg2)
+        die("malloc failed");
 
     size_t off = 0;
     if (message_len) { memcpy(msg2 + off, message, message_len); off += message_len; }
@@ -131,7 +133,6 @@ char *wallet_sign_message_hex_eip191(
     return hex;
 }
 
-// Convenience: string treated as UTF-8 bytes (like ethers signMessage(string)).
 char *wallet_sign_string_hex_eip191(
     const uint8_t seckey32[32],
     secp256k1_context *ctx,

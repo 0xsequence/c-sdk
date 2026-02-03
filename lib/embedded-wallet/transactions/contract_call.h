@@ -1,3 +1,5 @@
+#include "embedded-wallet/sequence_wallet.h"
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -35,11 +37,10 @@ typedef struct SequenceContractCallResult {
     char error[256];      // optional human-readable error
 } SequenceContractCallResult;
 
-SequenceContractCallResult sequence_contract_call(
+char *sequence_contract_call(
+	sequence_wallet_t *wallet,
     uint64_t chain_id,
     const char *contract_address,
     uint64_t value_wei,
-    const char *function_signature,
-    const Arg *args,
-    size_t arg_count
+    const char *function_signature
 );

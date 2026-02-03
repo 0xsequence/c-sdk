@@ -13,7 +13,12 @@ cJSON *sequence_build_initiate_auth_intent_json(
     /* verifier = "<email>;<sessionId>" */
     size_t verifier_len = strlen(email) + 1 + strlen(session_id_hex) + 1;
     char *verifier = (char *)malloc(verifier_len);
-    if (!verifier) return NULL;
+    if (!verifier)
+    {
+        printf("Could not allocate memory for the verifier.\n");
+        return NULL;
+    }
+
     (void)snprintf(verifier, verifier_len, "%s;%s", email, session_id_hex);
 
     cJSON *data = cJSON_CreateObject();

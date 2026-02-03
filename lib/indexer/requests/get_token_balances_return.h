@@ -9,3 +9,5 @@ typedef struct {
 } SequenceGetTokenBalancesReturn;
 
 SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const char *json);
+
+void log_sequence_get_token_balances_return(const SequenceGetTokenBalancesReturn *res);

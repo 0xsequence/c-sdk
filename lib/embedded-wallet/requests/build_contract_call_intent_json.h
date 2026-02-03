@@ -2,10 +2,15 @@
 #include <cjson/cJSON.h>
 
 cJSON *sequence_build_contract_call_intent_json(
-    const uint64_t chain_id,
-    const char *wallet,
-    const char *abi,
-    const char *to,
-    const char *value,
-    const char *values
+    const char* identifier,
+    const char* network,
+    const char* wallet,
+
+    const char* tx_to,
+    const char* tx_type,
+    const char* tx_value,
+
+    const char* data_abi,
+    const char* arg0,
+    const char* arg1
 );

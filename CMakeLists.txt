@@ -6,11 +6,6 @@ set(CMAKE_C_STANDARD 99)
 add_executable(sequence-c-sdk main.c
         lib/networking/http_client.h
         lib/networking/http_client.c
-        lib/evm/eoa_wallet.cpp
-        lib/evm/eoa_wallet.h
-        lib/evm/eoa_wallet.h
-        lib/embedded-wallet/sequence_wallet.h
-        lib/embedded-wallet/sequence_wallet.c
         lib/embedded-wallet/sequence_login.c
         lib/embedded-wallet/sequence_login.h
         lib/embedded-wallet/sequence_login.c
@@ -37,6 +32,8 @@ add_executable(sequence-c-sdk main.c
         lib/evm/keccak256.c
         lib/evm/sign_message.h
         lib/evm/sign_message.c
+        lib/evm/eoa_wallet.h
+        lib/evm/eoa_wallet.c
         lib/embedded-wallet/requests/build_intent_json.h
         lib/embedded-wallet/requests/build_intent_json.c
         lib/utils/hex_utils.h
@@ -48,14 +45,21 @@ add_executable(sequence-c-sdk main.c
         lib/utils/string_utils.h
         lib/utils/string_utils.c
         lib/embedded-wallet/requests/build_contract_call_intent_json.c
-        "lib/embedded-wallet/transactions/contract_call.h"
+        lib/embedded-wallet/transactions/contract_call.h
         lib/embedded-wallet/transactions/contract_call.c
         lib/embedded-wallet/requests/build_signable_intent_json.h
         lib/embedded-wallet/requests/build_signable_intent_json.c
         lib/embedded-wallet/requests/initiate_auth_intent_return.h
         lib/embedded-wallet/requests/initiate_auth_intent_return.c
         lib/embedded-wallet/requests/open_session_intent_return.h
-        lib/embedded-wallet/requests/open_session_intent_return.c)
+        lib/embedded-wallet/requests/open_session_intent_return.c
+        lib/embedded-wallet/sequence_wallet.h
+        lib/embedded-wallet/sequence_wallet.c
+        lib/utils/uuid.h
+        lib/utils/uuid.c
+        lib/embedded-wallet/requests/transaction_intent_return.h
+        lib/embedded-wallet/requests/transaction_intent_return.c
+)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib

@@ -16,7 +16,11 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
     const char *wallet_address,
     bool include_metadata
 ) {
-    SequenceGetTokenBalancesReturn *out;
+    SequenceGetTokenBalancesReturn *out = malloc(sizeof *out);
+
+    if (!out)
+        return NULL;
+
     out->status = -1;
 
     const char *chain_name = sequence_get_chain_name(chain_id);

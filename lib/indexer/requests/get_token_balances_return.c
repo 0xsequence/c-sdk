@@ -77,7 +77,6 @@ SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const c
     }
 
     cJSON_Delete(root);
-    log_sequence_get_token_balances_return(res);
 
     return res;
 }

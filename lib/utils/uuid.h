@@ -1,0 +1,1 @@
+void generate_uuid_v4(char out[37]);

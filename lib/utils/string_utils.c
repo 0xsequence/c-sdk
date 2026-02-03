@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -6,7 +7,11 @@ char *concat_malloc(const char *a, const char *b) {
     size_t len_b = strlen(b);
 
     char *out = malloc(len_a + len_b + 1); // +1 for '\0'
-    if (!out) return NULL;
+    if (!out)
+    {
+        fprintf(stderr, "unable to malloc during concat_malloc");
+        return NULL;
+    }
 
     memcpy(out, a, len_a);
     memcpy(out + len_a, b, len_b);
@@ -21,7 +26,11 @@ char *replace_value(const char *template, const char *value)
     const size_t ph_len = 7;
 
     const char *pos = strstr(template, placeholder);
-    if (!pos) return NULL;
+    if (!pos)
+    {
+        fprintf(stderr, "unable to replace value inside string");
+        return NULL;
+    }
 
     size_t out_len =
         strlen(template)
@@ -30,7 +39,11 @@ char *replace_value(const char *template, const char *value)
         + 1;
 
     char *out = malloc(out_len);
-    if (!out) return NULL;
+    if (!out)
+    {
+        fprintf(stderr, "unable to malloc during replace_value");
+        return NULL;
+    }
 
     size_t prefix_len = pos - template;
 
