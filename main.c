@@ -17,16 +17,33 @@ static void strip_newline(char *s) {
 }
 
 int main(void) {
-    sequence_config_init("oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA");
+    // **
+    // SETUP
+    // **
+
+    char *access_key = "oesk7yu5tjNfQElu5HjuUunAAAAAAAAAA";
+    sequence_config_init(access_key);
+
+    // **
+    // INDEXER
+    // **
+
+    uint64_t chain_id = 137;
+    char *contract_address = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
+    char *wallet_address = "0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9";
 
     SequenceGetTokenBalancesReturn *tokenBalances = sequence_get_token_balances(
-        137,
-        "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-        "0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9",
+        chain_id,
+        contract_address,
+        wallet_address,
         true);
 
     log_sequence_get_token_balances_return(tokenBalances);
     free_sequence_token_balances_return(tokenBalances);
+
+    // **
+    // EMAIL AUTHENTICATION
+    // **
 
     char email[256];
     char code[64];
@@ -52,26 +69,36 @@ int main(void) {
 
     sequence_wallet_t *wallet = confirm_email_sign_in(email, code);
 
-    printf("wallet address: %s\n", wallet->address);
-    printf("session id: %s\n", wallet->session_id);
+    printf("Wallet address: %s\n", wallet->address);
+    printf("Session id: %s\n", wallet->session_id);
+
+    // **
+    // CONTRACT CALL
+    // **
+
+    uint64_t chain_id_mint = 80002;
+    char *contract_address_mint = "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6";
+    char *function_signature = "mint(address,uint256)";
+    char *address_arg = "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6";
+    char *uint256_arg = "123456789012345678901234567890123456789012345678901234567890";
 
     Arg args[2];
 
     args[0].type = ARG_STRING;
-    args[0].v.str = "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6";
+    args[0].v.str = address_arg;
 
     args[1].type = ARG_STRING;
-    args[1].v.str = "123456789012345678901234567890123456789012345678901234567890";
+    args[1].v.str = uint256_arg;
 
     char *hash = sequence_contract_call(
         wallet,
-        80002,
-        "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6",
+        chain_id,
+        contract_address_mint,
         0,
-        "mint(address,uint256)",
+        function_signature,
         args, 2);
 
-    printf("hash: %s\n", hash);
+    printf("Transaction hash: %s\n", hash);
 
     return 0;
 }
