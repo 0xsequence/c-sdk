@@ -84,10 +84,6 @@ target_link_libraries(sequence-c-sdk PRIVATE
 find_package(CURL REQUIRED)
 target_link_libraries(sequence-c-sdk PRIVATE CURL::libcurl)
 
-# ---- OpenSSL (for SHA-256, cleansing, etc.) ----
-find_package(OpenSSL REQUIRED)
-target_link_libraries(sequence-c-sdk PRIVATE OpenSSL::Crypto)
-
 # ---- cJSON (Homebrew) ----
 set(HOMEBREW_PREFIX "/opt/homebrew" CACHE PATH "Homebrew prefix")
 
