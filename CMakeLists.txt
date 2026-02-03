@@ -49,7 +49,13 @@ add_executable(sequence-c-sdk main.c
         lib/utils/string_utils.c
         lib/embedded-wallet/requests/build_contract_call_intent_json.c
         "lib/embedded-wallet/transactions/contract_call.h"
-        lib/embedded-wallet/transactions/contract_call.c)
+        lib/embedded-wallet/transactions/contract_call.c
+        lib/embedded-wallet/requests/build_signable_intent_json.h
+        lib/embedded-wallet/requests/build_signable_intent_json.c
+        lib/embedded-wallet/requests/initiate_auth_intent_return.h
+        lib/embedded-wallet/requests/initiate_auth_intent_return.c
+        lib/embedded-wallet/requests/open_session_intent_return.h
+        lib/embedded-wallet/requests/open_session_intent_return.c)
 
 target_include_directories(sequence-c-sdk PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/lib

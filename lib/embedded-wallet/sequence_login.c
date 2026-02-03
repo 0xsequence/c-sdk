@@ -12,43 +12,17 @@
 #include "../utils/timestamps.h"
 #include "evm/keccak256.h"
 #include "networking/http_client.h"
+#include "requests/build_signable_intent_json.h"
+#include "requests/initiate_auth_intent_return.h"
+#include "requests/open_session_intent_return.h"
 #include "utils/byte_utils.h"
 #include "utils/hex_utils.h"
+#include "utils/string_utils.h"
 
-static int is_reasonable_email(const char *email) {
-    if (!email) return 0;
-    size_t n = strlen(email);
-    if (n < 3 || n > 254) return 0;
-
-    const char *at = strchr(email, '@');
-    if (!at) return 0;
-    if (at == email) return 0;                 /* nothing before @ */
-    if (*(at + 1) == '\0') return 0;           /* nothing after @ */
-    if (strchr(at + 1, '.') == NULL) return 0; /* require dot after @ */
-
-    /* reject whitespace */
-    for (const char *p = email; *p; p++) {
-        if (isspace((unsigned char)*p)) return 0;
-    }
-    return 1;
-}
-
-static int is_reasonable_code(const char *code) {
-    if (!code) return 0;
-    size_t n = strlen(code);
-    if (n < 4 || n > 12) return 0; /* flexible: 4-12 chars */
-    for (size_t i = 0; i < n; i++) {
-        if (!isalnum((unsigned char)code[i])) return 0;
-    }
-    return 1;
-}
+static sequence_wallet_t *cur_signer = NULL;
+static char *cur_challenge = NULL;
 
 int sign_in_with_email(const char *email) {
-    if (!is_reasonable_email(email)) {
-        fprintf(stderr, "sign_in_with_email: invalid email\n");
-        return 0;
-    }
-
     HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
@@ -58,15 +32,15 @@ int sign_in_with_email(const char *email) {
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
-    sequence_wallet_t *wallet = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
-    if (!wallet) return -1;
+    cur_signer = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
+    if (!cur_signer) return -1;
 
-    if (!sequence_wallet_initialize(wallet)) {
-        free(wallet);
+    if (!sequence_wallet_initialize(cur_signer)) {
+        free(cur_signer);
         return -1;
     }
 
-    const char *address = sequence_wallet_get_address(wallet->ctx, &wallet->pubkey);
+    const char *address = sequence_wallet_get_address(cur_signer->ctx, &cur_signer->pubkey);
 
     size_t addr_len;
     uint8_t *addr = hex_to_bytes(
@@ -87,34 +61,34 @@ int sign_in_with_email(const char *email) {
       session_id
     );
 
-    char *to_sign = cJSON_PrintUnformatted(intent_data);
+    long issuedAt = timestamp_now_seconds();
+    long expiresAt = timestamp_seconds_from_now(36000);
 
-    uint8_t bytes[32];
-
-    size_t len = string_to_bytes(to_sign, bytes, sizeof(bytes));
-
-    printf("Bytes for to_sign (%zu):\n", len);
-    for (size_t i = 0; i < len; i++) {
-        printf("0x%02X ", bytes[i]);
-    }
-    printf("\n");
+    char *to_sign = build_signable_intent_json(
+        intent_data,
+        "initiateAuth",
+        issuedAt,
+        expiresAt
+    );
 
     uint8_t hashed_to_sign[32];
-    keccak256(bytes, sizeof(bytes), hashed_to_sign);
+    keccak256((const uint8_t*)to_sign, strlen(to_sign), hashed_to_sign);
 
     char *hashed_to_sign_hex = bytes_to_hex(hashed_to_sign, sizeof(hashed_to_sign));
 
-    printf("data ready to sign: %s\n", hashed_to_sign_hex);
+    printf("data ready to sign: %s\n", to_sign);
+    printf("hashed data: %s\n", hashed_to_sign_hex);
 
-    const char *sig = wallet_sign_string_hex_eip191(wallet->seckey, wallet->ctx, to_sign);
+    const char *sig = wallet_sign_message_hex_eip191(cur_signer->seckey, cur_signer->ctx, hashed_to_sign, sizeof(hashed_to_sign), NULL, 0);
 
     printf("signature: %s\n", sig);
 
-    long issuedAt = timestamp_now_seconds();
-    long expiresAt = timestamp_seconds_from_now(3600);
-
     char *intent_json = sequence_build_intent_json(
-        intent_data,
+    sequence_build_initiate_auth_intent_json(
+          email,
+          "",
+          session_id
+        ),
         "initiateAuth",
         issuedAt,
         expiresAt,
@@ -136,21 +110,15 @@ int sign_in_with_email(const char *email) {
     printf("Status: %ld\n", r.status_code);
     printf("Body (%zu bytes):\n%s\n", r.body_len, r.body);
 
+    SequenceInitiateAuthResponse response = sequence_build_initiate_auth_intent_return(r.body);
+    cur_challenge = response.data.challenge;
+
     http_response_free(&r);
     http_client_destroy(c);
     return 1;
 }
 
 sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
-    if (!is_reasonable_email(email)) {
-        fprintf(stderr, "confirm_email_sign_in: invalid email\n");
-        return NULL;
-    }
-    if (!is_reasonable_code(code)) {
-        fprintf(stderr, "confirm_email_sign_in: invalid code\n");
-        return NULL;
-    }
-
     HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
@@ -160,38 +128,69 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
-    sequence_wallet_t *wallet = (sequence_wallet_t *)calloc(1, sizeof(sequence_wallet_t));
-    if (!wallet) return NULL;
+    const char *address = sequence_wallet_get_address(cur_signer->ctx, &cur_signer->pubkey);
 
-    if (!sequence_wallet_initialize(wallet)) {
-        free(wallet);
-        return NULL;
-    }
-
-    const char *address = sequence_wallet_get_address(wallet->ctx, &wallet->pubkey);
-
-    const char *session_id_hex = address;
-
-    cJSON *open_session_data = sequence_build_open_session_intent_json(
-      email,
-      "",
-      session_id_hex,
-      code
+    size_t addr_len;
+    uint8_t *addr = hex_to_bytes(
+        address,
+        &addr_len
     );
 
-    char *to_sign = cJSON_PrintUnformatted(open_session_data);
+    size_t new_len;
+    uint8_t *padded = prepend_zero(addr, 20, &new_len);
 
-    const char *sig = wallet_sign_string_hex_eip191(wallet->seckey, wallet->ctx, to_sign);
+    char *session_id = bytes_to_hex(padded, new_len);
+
+    printf("Public address: %s\n", session_id);
 
     long issuedAt = timestamp_now_seconds();
-    long expiresAt = timestamp_seconds_from_now(3600);
+    long expiresAt = timestamp_seconds_from_now(36000);
+
+    char *preHashAnswer = concat_malloc(cur_challenge, code);
+
+    uint8_t hashedAnswer[32];
+    keccak256((const uint8_t*)preHashAnswer, strlen(preHashAnswer), hashedAnswer);
+
+    char *hashedAnswerHex = bytes_to_hex(hashedAnswer, 32);
+
+    char *to_sign = build_signable_intent_json(
+        sequence_build_open_session_intent_json(
+          email,
+          session_id,
+          hashedAnswerHex
+        ),
+        "openSession",
+        issuedAt,
+        expiresAt
+    );
+
+    uint8_t hashed_to_sign[32];
+    keccak256((const uint8_t*)to_sign, strlen(to_sign), hashed_to_sign);
+
+    char *hashed_to_sign_hex = bytes_to_hex(hashed_to_sign, sizeof(hashed_to_sign));
+
+    printf("data ready to sign: %s\n", to_sign);
+    printf("hashed data: %s\n", hashed_to_sign_hex);
+
+    const char *sig = wallet_sign_message_hex_eip191(
+        cur_signer->seckey,
+        cur_signer->ctx,
+        hashed_to_sign,
+        sizeof(hashed_to_sign),
+        NULL, 0);
+
+    printf("signature: %s\n", sig);
 
     char *intent_json = sequence_build_intent_json(
-        open_session_data,
+        sequence_build_open_session_intent_json(
+          email,
+          session_id,
+          hashedAnswerHex
+        ),
         "openSession",
         issuedAt,
         expiresAt,
-        session_id_hex,
+        session_id,
         sig
     );
 
@@ -207,10 +206,18 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
     printf("Status: %ld\n", r.status_code);
     printf("Body (%zu bytes):\n%s\n", r.body_len, r.body);
 
+    SequenceSessionOpenedResult sessionData = sequence_build_open_session_intent_return(r.body);
+
+    char *new_session_id = sessionData.responseData.sessionId;
+    char *walletAddress = sessionData.responseData.wallet;
+
+    printf("wallet address: %s\n", walletAddress);
+    printf("Session ID: %s\n", new_session_id);
+
     http_response_free(&r);
     http_client_destroy(c);
 
-    return wallet;
+    return cur_signer;
 }
 
 void sequence_wallet_free(sequence_wallet_t *wallet) {

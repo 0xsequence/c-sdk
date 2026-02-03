@@ -31,8 +31,8 @@ char *sequence_build_intent_json(
     cJSON_AddStringToObject(intent, "name", name);
     cJSON_AddNumberToObject(intent, "expiresAt", (double)expires_at);
     cJSON_AddNumberToObject(intent, "issuedAt", (double)issued_at);
-    cJSON_AddStringToObject(intent, "version", "1 (C 0.1.0)");
     cJSON_AddItemToObject(intent, "signatures", sigs);
+    cJSON_AddStringToObject(intent, "version", "1 (C 0.1.0)");
 
     // intent.sigs
     cJSON_AddItemToArray(sigs, sig0);

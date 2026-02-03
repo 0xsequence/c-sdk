@@ -6,7 +6,6 @@
 
 cJSON *sequence_build_open_session_intent_json(
     const char *email,
-    const char *metadata,
     const char *session_id_hex,
     const char *code
 ) {
@@ -28,12 +27,11 @@ cJSON *sequence_build_open_session_intent_json(
         return NULL;
     }
 
+    cJSON_AddStringToObject(data, "answer", code);
+    cJSON_AddBoolToObject(data, "forceCreateAccount", 0 /* false */);
     cJSON_AddStringToObject(data, "identityType", "Email");
     cJSON_AddStringToObject(data, "sessionId", session_id_hex);
     cJSON_AddStringToObject(data, "verifier", verifier);
-    cJSON_AddStringToObject(data, "metadata", metadata);
-    cJSON_AddStringToObject(data, "answer", code);
-    cJSON_AddBoolToObject(data, "forceCreateAccount", 0 /* false */);
 
     free(verifier);
     return data;

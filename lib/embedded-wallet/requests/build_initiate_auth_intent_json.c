@@ -19,9 +19,9 @@ cJSON *sequence_build_initiate_auth_intent_json(
     cJSON *data = cJSON_CreateObject();
 
     cJSON_AddStringToObject(data, "identityType", "Email");
+    cJSON_AddStringToObject(data, "metadata", metadata);
     cJSON_AddStringToObject(data, "sessionId", session_id_hex);
     cJSON_AddStringToObject(data, "verifier", verifier);
-    cJSON_AddStringToObject(data, "metadata", metadata);
 
     free(verifier);
 
