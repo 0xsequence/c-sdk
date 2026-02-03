@@ -3,6 +3,7 @@
 #include "embedded-wallet/requests/build_contract_call_intent_json.h"
 #include "embedded-wallet/requests/build_signable_intent_json.h"
 #include "embedded-wallet/requests/build_intent_json.h"
+#include "utils/globals.h"
 #include "utils/timestamps.h"
 #include "evm/keccak256.h"
 #include "evm/eoa_wallet.h"
@@ -30,7 +31,7 @@ char *sequence_contract_call(
     (void)value_wei;
     (void)function_signature;
 
-    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
+    HttpClient *c = http_client_create(g_waas_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
     }
@@ -92,8 +93,8 @@ char *sequence_contract_call(
         "contractCall",
         "0",
         function_signature,
-        "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6",
-        "123456789012345678901234567890123456789012345678901234567890");
+        args[0].v.str,
+        args[1].v.str);
 
     char *intent_json = sequence_build_intent_json(
         intent_data_2,

@@ -1,4 +1,5 @@
 #include "build_signable_intent_json.h"
+#include "utils/globals.h"
 
 char *build_signable_intent_json(
     cJSON *data,
@@ -18,7 +19,7 @@ char *build_signable_intent_json(
     cJSON_AddNumberToObject(root, "expiresAt", (double)expires_at);
     cJSON_AddNumberToObject(root, "issuedAt", (double)issued_at);
     cJSON_AddStringToObject(root, "name", name);
-    cJSON_AddStringToObject(root, "version", "1 (C 0.1.0)");
+    cJSON_AddStringToObject(root, "version", g_sequence_sdk_version);
 
     char *json_out = cJSON_PrintUnformatted(root);
 

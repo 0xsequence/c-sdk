@@ -10,6 +10,7 @@
 #include "requests/build_intent_json.h"
 #include "requests/build_initiate_auth_intent_json.h"
 #include "requests/build_open_session_intent_json.h"
+#include "utils/globals.h"
 #include "../utils/timestamps.h"
 #include "evm/keccak256.h"
 #include "networking/http_client.h"
@@ -24,7 +25,7 @@ static eoa_wallet_t *cur_signer = NULL;
 static char *cur_challenge = NULL;
 
 int sign_in_with_email(const char *email) {
-    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
+    HttpClient *c = http_client_create(g_waas_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return -1;
@@ -128,8 +129,7 @@ int sign_in_with_email(const char *email) {
         return -1;
     }
 
-    printf("Status: %ld\n", r.status_code);
-    printf("Body (%zu bytes):\n%s\n", r.body_len, r.body);
+    printf("Response: %s\n", r.body);
 
     SequenceInitiateAuthResponse response = sequence_build_initiate_auth_intent_return(r.body);
     cur_challenge = strdup(response.data.challenge);
@@ -152,7 +152,7 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
-    HttpClient *c = http_client_create("https://waas.sequence.app/rpc/WaasAuthenticator");
+    HttpClient *c = http_client_create(g_waas_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         free(cur_signer);
@@ -222,6 +222,8 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         sig
     );
 
+	printf(">> %s", intent_json);
+
     HttpResponse r = http_client_post_json(c, "/RegisterSession", intent_json, 10000);
 
     if (r.error) {
@@ -233,8 +235,7 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
-    printf("Status: %ld\n", r.status_code);
-    printf("Body (%zu bytes):\n%s\n", r.body_len, r.body);
+    printf("Response: %s\n", r.body);
 
     SequenceSessionOpenedResult sessionData = sequence_build_open_session_intent_return(r.body);
 

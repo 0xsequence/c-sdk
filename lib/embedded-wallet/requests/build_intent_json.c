@@ -1,4 +1,6 @@
 #include "build_intent_json.h"
+#include "utils/globals.h"
+
 #include <cjson/cJSON.h>
 
 char *sequence_build_intent_json(
@@ -32,7 +34,7 @@ char *sequence_build_intent_json(
     cJSON_AddNumberToObject(intent, "expiresAt", (double)expires_at);
     cJSON_AddNumberToObject(intent, "issuedAt", (double)issued_at);
     cJSON_AddItemToObject(intent, "signatures", sigs);
-    cJSON_AddStringToObject(intent, "version", "1 (C 0.1.0)");
+    cJSON_AddStringToObject(intent, "version", g_sequence_sdk_version);
 
     // intent.sigs
     cJSON_AddItemToArray(sigs, sig0);
