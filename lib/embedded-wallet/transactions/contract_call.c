@@ -21,7 +21,9 @@ char *sequence_contract_call(
     uint64_t chain_id,
     const char *contract_address,
     uint64_t value_wei,
-    const char *function_signature
+    const char *function_signature,
+	const Arg *args,
+    size_t args_len
 ) {
     (void)chain_id;
     (void)contract_address;
@@ -54,8 +56,8 @@ char *sequence_contract_call(
         "contractCall",
         "0",
         function_signature,
-        "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6",
-        "123456789012345678901234567890123456789012345678901234567890");
+        args[0].v.str,
+        args[1].v.str);
 
     long issuedAt = timestamp_now_seconds();
     long expiresAt = timestamp_seconds_from_now(36000);
@@ -102,11 +104,7 @@ char *sequence_contract_call(
         sig
     );
 
-	printf("intent_json: %s\n", intent_json);
-
     HttpResponse r = http_client_post_json(c, "/SendIntent", intent_json, 10000);
-
-    printf("ContractCall response: %s\n", r.body);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
@@ -119,5 +117,5 @@ char *sequence_contract_call(
 		return "null";
 	}
 
-    return result->response.code;
+    return result->response.data.txHash;
 }

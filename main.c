@@ -55,7 +55,22 @@ int main(void) {
     printf("wallet address: %s\n", wallet->address);
     printf("session id: %s\n", wallet->session_id);
 
-    char *hash = sequence_contract_call(wallet, 80002, "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6", 0, "mint(address,uint256)");
+    Arg args[2];
+
+    args[0].type = ARG_STRING;
+    args[0].v.str = "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6";
+
+    args[1].type = ARG_STRING;
+    args[1].v.str = "123456789012345678901234567890123456789012345678901234567890";
+
+    char *hash = sequence_contract_call(
+        wallet,
+        80002,
+        "0x7e3DA4a3bC319962EF5CA37B05aD107Fc03cFBd6",
+        0,
+        "mint(address,uint256)",
+        args, 2);
+
     printf("hash: %s\n", hash);
 
     return 0;

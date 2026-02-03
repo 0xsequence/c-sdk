@@ -29,18 +29,12 @@ typedef struct Arg {
     } v;
 } Arg;
 
-typedef struct SequenceContractCallResult {
-    uint8_t *payload;     // owned by caller (or by callee; define clearly)
-    size_t payload_len;
-
-    int status;           // 0 = ok, nonzero = error
-    char error[256];      // optional human-readable error
-} SequenceContractCallResult;
-
 char *sequence_contract_call(
 	sequence_wallet_t *wallet,
     uint64_t chain_id,
     const char *contract_address,
     uint64_t value_wei,
-    const char *function_signature
+    const char *function_signature,
+	const Arg *args,
+    size_t args_len
 );

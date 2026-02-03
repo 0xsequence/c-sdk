@@ -18,6 +18,7 @@ typedef struct {
 
 typedef struct {
     char *metaTxHash;
+    char *txHash;
     SequenceTransactionReceipt receipt;
 } SequenceTransactionData;
 

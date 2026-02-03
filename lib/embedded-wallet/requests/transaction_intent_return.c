@@ -50,6 +50,9 @@ sequence_build_transaction_intent_return(char *json) {
     r->response.data.metaTxHash = dup_json_string(j_meta);
     if (!r->response.data.metaTxHash) goto fail;
 
+    r->response.data.txHash = dup_json_string(cJSON_GetObjectItemCaseSensitive(j_data, "txHash"));
+    if (!r->response.data.txHash) goto fail;
+
     const cJSON *j_receipt = cJSON_GetObjectItemCaseSensitive(j_data, "receipt");
     if (!cJSON_IsObject(j_receipt)) goto fail;
 
@@ -82,9 +85,6 @@ sequence_build_transaction_intent_return(char *json) {
 
     rc->txnHash = dup_json_string(cJSON_GetObjectItemCaseSensitive(j_receipt, "txnHash"));
     if (!rc->txnHash) goto fail;
-
-    rc->txHash = dup_json_string(cJSON_GetObjectItemCaseSensitive(j_receipt, "txHash"));
-    if (!rc->txHash) goto fail;
 
     cJSON_Delete(root);
     return r;
