@@ -90,7 +90,7 @@ int main(void) {
     args[1].type = ARG_STRING;
     args[1].v.str = uint256_arg;
 
-    char *hash = sequence_contract_call(
+    /*char *hash = sequence_contract_call(
         wallet,
         chain_id_mint,
         contract_address_mint,
@@ -98,7 +98,7 @@ int main(void) {
         function_signature,
         args, 2);
 
-    printf("Transaction hash: %s\n", hash);
+    printf("Transaction hash: %s\n", hash);*/
 
     return 0;
 }

@@ -20,17 +20,9 @@
 char *sequence_contract_call(
     sequence_wallet_t *wallet,
     uint64_t chain_id,
-    const char *contract_address,
-    uint64_t value_wei,
-    const char *function_signature,
-	const Arg *args,
-    size_t args_len
+    SequenceContractCallData *transactions,
+    size_t transactions_len
 ) {
-    (void)chain_id;
-    (void)contract_address;
-    (void)value_wei;
-    (void)function_signature;
-
     HttpClient *c = http_client_create(g_waas_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
@@ -53,12 +45,12 @@ char *sequence_contract_call(
         identifier,
         chain_id_str,
         wallet->address,
-        contract_address,
+        "contract_address",
         "contractCall",
         "0",
-        function_signature,
-        args[0].v.str,
-        args[1].v.str);
+        "function_signature",
+        "args[0].v.str",
+        "args[1].v.str");
 
     long issuedAt = timestamp_now_seconds();
     long expiresAt = timestamp_seconds_from_now(36000);
@@ -89,12 +81,12 @@ char *sequence_contract_call(
         identifier,
         chain_id_str,
         wallet->address,
-        contract_address,
+        "contract_address",
         "contractCall",
         "0",
-        function_signature,
-        args[0].v.str,
-        args[1].v.str);
+        "function_signature",
+        "args[0].v.str",
+        "args[1].v.str");
 
     char *intent_json = sequence_build_intent_json(
         intent_data_2,

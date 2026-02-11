@@ -25,7 +25,7 @@ static eoa_wallet_t *cur_signer = NULL;
 static char *cur_challenge = NULL;
 
 int sign_in_with_email(const char *email) {
-    HttpClient *c = http_client_create(g_waas_api_url);
+    HttpClient *c = http_client_create(g_wallet_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return -1;
@@ -118,7 +118,7 @@ int sign_in_with_email(const char *email) {
 
     printf(">> %s", intent_json);
 
-    HttpResponse r = http_client_post_json(c, "/SendIntent", intent_json, 10000);
+    HttpResponse r = http_client_post_json(c, "/CommitVerifier", intent_json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);
@@ -152,7 +152,7 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
         return NULL;
     }
 
-    HttpClient *c = http_client_create(g_waas_api_url);
+    HttpClient *c = http_client_create(g_wallet_api_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         free(cur_signer);
@@ -224,7 +224,7 @@ sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
 
 	printf(">> %s", intent_json);
 
-    HttpResponse r = http_client_post_json(c, "/RegisterSession", intent_json, 10000);
+    HttpResponse r = http_client_post_json(c, "/CompleteAuth", intent_json, 10000);
 
     if (r.error) {
         fprintf(stderr, "Request failed: %s\n", r.error);

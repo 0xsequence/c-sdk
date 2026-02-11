@@ -61,6 +61,9 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/requests/transaction_intent_return.c
         lib/utils/globals.h
         lib/utils/globals.c
+        lib/embedded-wallet/transactions/get_fee_options.h
+        lib/embedded-wallet/transactions/get_fee_options.c
+        lib/embedded-wallet/transactions/contract_call_data.h
 )
 
 target_include_directories(sequence-c-sdk PRIVATE
