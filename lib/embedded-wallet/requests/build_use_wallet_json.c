@@ -1,10 +1,9 @@
-#include "build_complete_auth_json.h"
+#include "build_use_wallet_json.h"
 
 #include <cjson/cJSON.h>
 
-char *sequence_build_complete_auth_json(
-    const char *verifier,
-    const char *answer
+char *sequence_build_use_wallet_json(
+    const char *walletType
 ) {
     cJSON *root = cJSON_CreateObject();
     cJSON *params = cJSON_CreateObject();
@@ -17,10 +16,8 @@ char *sequence_build_complete_auth_json(
 
     cJSON_AddItemToObject(root, "params", params);
 
-    cJSON_AddStringToObject(params, "identityType", "Email");
-    cJSON_AddStringToObject(params, "authMode", "OTP");
-    cJSON_AddStringToObject(params, "verifier", verifier);
-    cJSON_AddStringToObject(params, "answer", answer);
+    cJSON_AddStringToObject(params, "walletType", walletType);
+    cJSON_AddNumberToObject(params, "walletIndex", 0);
 
     char *json_out = cJSON_PrintUnformatted(root);
 

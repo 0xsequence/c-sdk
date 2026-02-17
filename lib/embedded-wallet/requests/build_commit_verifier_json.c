@@ -1,12 +1,9 @@
-#include "build_open_session_intent_json.h"
+#include "build_commit_verifier_json.h"
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cjson/cJSON.h>
 
-char *sequence_build_commit_verifier_json(
-    const char *email
-) {
+char *sequence_build_commit_verifier_json(const char *email) {
     cJSON *root = cJSON_CreateObject();
     cJSON *params = cJSON_CreateObject();
 
