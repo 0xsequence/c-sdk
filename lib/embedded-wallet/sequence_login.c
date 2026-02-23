@@ -12,8 +12,10 @@
 #include "networking/http_client.h"
 #include "requests/build_commit_verifier_json.h"
 #include "requests/build_complete_auth_json.h"
+#include "requests/build_create_wallet_json.h"
+#include "requests/build_use_wallet_json.h"
+#include "requests/commit_verifier_return.h"
 #include "requests/initiate_auth_intent_return.h"
-#include "requests/open_session_intent_return.h"
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
@@ -95,39 +97,72 @@ int sign_in_with_email(const char *email) {
 
     const char *body = sign_and_send("/CommitVerifier", commit_verifier_json);
 
-    SequenceInitiateAuthResponse response = sequence_build_initiate_auth_intent_return(body);
-    cur_challenge = strdup(response.data.challenge);
+    SequenceCommitVerifierResponse response = sequence_build_commit_verifier_return(body);
+    cur_challenge = strdup(response.challenge);
 
     return 1;
 }
 
-sequence_wallet_t *confirm_email_sign_in(const char *email, const char *code) {
+SequenceCompleteAuthResponse confirm_email_sign_in(const char *email, const char *code) {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
-        return NULL;
+
     }
 
     if (!cur_challenge) {
         fprintf(stderr, "No challenge available\n");
         free(cur_signer);
         cur_signer = NULL;
-        return NULL;
+        //return NULL;
     }
 
-    char *complete_auth_json = sequence_build_complete_auth_json("", "");
+    char *preHashAnswer = concat_malloc(cur_challenge, code);
+
+    uint8_t hashed_to_sign[32];
+    keccak256((const uint8_t*)preHashAnswer, strlen(preHashAnswer), hashed_to_sign);
+
+    char *hashedAnswerHex = bytes_to_hex(hashed_to_sign, 32);
+
+    char *complete_auth_json = sequence_build_complete_auth_json(email, hashedAnswerHex);
 
     const char *body = sign_and_send("/CompleteAuth", complete_auth_json);
 
-    SequenceSessionOpenedResult sessionData = sequence_build_open_session_intent_return(body);
+    SequenceCompleteAuthResponse response = sequence_build_complete_auth_return(body);
 
-    const char *new_session_id = sessionData.responseData.sessionId;
+    /*const char *new_session_id = sessionData.identity.sessionId;
     const char *wallet_address = sessionData.responseData.wallet;
 
     sequence_wallet_t *sequence_wallet = sequence_wallet_from_response(
         wallet_address,
         email,
         new_session_id,
-        cur_signer->seckey);
+        cur_signer->seckey);*/
 
-    return sequence_wallet;
+    return response;
+}
+
+int use_wallet(const char *walletType)
+{
+    if (!cur_signer || !cur_signer->ctx) {
+        fprintf(stderr, "No signer initialized\n");
+    }
+
+    char *useWalletJson = sequence_build_use_wallet_json(walletType);
+
+    const char *body = sign_and_send("/UseWallet", useWalletJson);
+
+    return 0;
+}
+
+int create_wallet(const char *walletType)
+{
+    if (!cur_signer || !cur_signer->ctx) {
+        fprintf(stderr, "No signer initialized\n");
+    }
+
+    char *useWalletJson = sequence_build_create_wallet_json(walletType);
+
+    const char *body = sign_and_send("/CreateWallet", useWalletJson);
+
+    return 0;
 }

@@ -67,10 +67,12 @@ int main(void) {
     }
     strip_newline(code);
 
-    sequence_wallet_t *wallet = confirm_email_sign_in(email, code);
+    SequenceCompleteAuthResponse response = confirm_email_sign_in(email, code);
 
-    printf("Wallet address: %s\n", wallet->address);
-    printf("Session id: %s\n", wallet->session_id);
+    printf("Wallet address: %s\n", response.wallet.address);
+    printf("Wallet index: %d\n", response.wallet.index);
+
+    use_wallet(response.wallet.type);
 
     // **
     // CONTRACT CALL
