@@ -70,12 +70,13 @@ char *sequence_contract_call(
 
     }
 
-    const char *sig = wallet_sign_message_hex_eip191(
+    const char *sig = "";
+    /*const char *sig = wallet_sign_message_hex_eip191(
         w.seckey,
         w.ctx,
         hashed_to_sign,
         sizeof(hashed_to_sign),
-        NULL, 0);
+        NULL, 0);*/
 
     cJSON *intent_data_2 = sequence_build_contract_call_intent_json(
         identifier,

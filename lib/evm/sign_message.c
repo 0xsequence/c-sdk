@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdio.h>
-
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 
@@ -11,7 +10,16 @@ static void die(const char *msg) {
     exit(1);
 }
 
-static char *hex_encode0x_malloc(const uint8_t *buf, size_t len) {
+// --- helper: hex without 0x into existing buffer ---
+static void hex_encode_lower(const uint8_t *in, size_t inlen, char *out /* needs 2*inlen */) {
+    static const char h[] = "0123456789abcdef";
+    for (size_t i = 0; i < inlen; i++) {
+        out[i*2+0] = h[(in[i] >> 4) & 0xF];
+        out[i*2+1] = h[in[i] & 0xF];
+    }
+}
+
+char *hex_encode0x_malloc(const uint8_t *buf, size_t len) {
     static const char h[] = "0123456789abcdef";
     char *out = (char *)malloc(2 + len * 2 + 1);
     if (!out) die("malloc failed");
@@ -45,7 +53,7 @@ static size_t u64_to_dec(char *dst, size_t dstcap, uint64_t v) {
 
 // Builds: "\x19Ethereum Signed Message:\n" + dec(len) + message
 // Returns malloc'd buffer and length via out_len.
-static uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size_t *out_len) {
+uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size_t *out_len) {
     static const char prefix[] = "\x19" "Ethereum Signed Message:\n";
 
     char len_dec[32];
@@ -65,52 +73,22 @@ static uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size
     return buf;
 }
 
-// Signs message bytes (optionally concatenated with chainId bytes) like ethers v5 signMessage.
-// Returns signature hex string: 0x + r(32) + s(32) + v(1), with v in {27,28}.
-char *wallet_sign_message_hex_eip191(
-    const uint8_t seckey32[32],
+// Sign a 32-byte hash directly (NO hashing/prefixing inside). Returns 0x + r+s+v, with v in {0,1}.
+static char *secp256k1_sign_hash65_hex_v01(
     secp256k1_context *ctx,
-    const uint8_t *message, size_t message_len,
-    const uint8_t *chainId, size_t chainId_len
+    const uint8_t seckey32[32],
+    const uint8_t hash32[32]
 ) {
-    if (!seckey32 || !ctx || (!message && message_len != 0))
-        die("bad args");
-
-    // 1) message2 = message || chainId (if provided)
-    size_t msg2_len = message_len + ((chainId && chainId_len) ? chainId_len : 0);
-    uint8_t *msg2 = (uint8_t *)malloc(msg2_len);
-    if (!msg2)
-        die("malloc failed");
-
-    size_t off = 0;
-    if (message_len) { memcpy(msg2 + off, message, message_len); off += message_len; }
-    if (chainId && chainId_len) { memcpy(msg2 + off, chainId, chainId_len); off += chainId_len; }
-
-    // 2) Prefix using msg2_len (matches C# which prefixes after concatenation)
-    size_t pref_len = 0;
-    uint8_t *pref = prefixed_message_malloc(msg2, msg2_len, &pref_len);
-
-    // 3) Keccak-256
-    uint8_t digest32[32];
-    keccak256(pref, pref_len, digest32);
-
-    // cleanup
-    memset(pref, 0, pref_len); free(pref);
-    memset(msg2, 0, msg2_len); free(msg2);
-
-    // 4) Sign recoverable
     secp256k1_ecdsa_recoverable_signature rsig;
-    if (!secp256k1_ecdsa_sign_recoverable(ctx, &rsig, digest32, seckey32, NULL, NULL)) {
-        memset(digest32, 0, sizeof(digest32));
+    if (!secp256k1_ecdsa_sign_recoverable(ctx, &rsig, hash32, seckey32, NULL, NULL)) {
         die("secp256k1_ecdsa_sign_recoverable failed");
     }
 
-    // 5) Serialize r,s and recid
     uint8_t compact64[64];
     int recid = 0;
     secp256k1_ecdsa_recoverable_signature_serialize_compact(ctx, compact64, &recid, &rsig);
 
-    // 6) Enforce low-s (Ethereum standard) and fix recid if normalized
+    // low-s normalize + fix recid like you already do
     secp256k1_ecdsa_signature nsig, nsig_norm;
     secp256k1_ecdsa_recoverable_signature_convert(ctx, &nsig, &rsig);
     int changed = secp256k1_ecdsa_signature_normalize(ctx, &nsig_norm, &nsig);
@@ -119,27 +97,45 @@ char *wallet_sign_message_hex_eip191(
         recid ^= 1;
     }
 
-    // 7) r||s||v, v in {27,28}
     uint8_t sig65[65];
     memcpy(sig65, compact64, 64);
     sig65[64] = (uint8_t)(recid + 27);
 
     char *hex = hex_encode0x_malloc(sig65, 65);
 
-    memset(digest32, 0, sizeof(digest32));
     memset(compact64, 0, sizeof(compact64));
     memset(sig65, 0, sizeof(sig65));
-
     return hex;
 }
 
-char *wallet_sign_string_hex_eip191(
-    const uint8_t seckey32[32],
+// Signs message bytes (optionally concatenated with chainId bytes) like ethers v5 signMessage.
+// Returns signature hex string: 0x + r(32) + s(32) + v(1), with v in {27,28}.
+char *wallet_sign_message_hex_eip191(
     secp256k1_context *ctx,
-    const char *utf8_string
+    const uint8_t seckey32[32],
+    const char *data_to_sign_utf8
 ) {
-    if (!utf8_string) die("null string");
-    const uint8_t *msg = (const uint8_t *)utf8_string;
-    size_t msg_len = strlen(utf8_string);
-    return wallet_sign_message_hex_eip191(seckey32, ctx, msg, msg_len, NULL, 0);
+    // 1) digest32 = keccak256(messageBytes)
+    uint8_t digest32[32];
+    keccak256((const uint8_t*)data_to_sign_utf8, strlen(data_to_sign_utf8), digest32);
+
+    // 2) digestHex ASCII = "0x" + 64 hex chars
+    char digestHex[2 + 64 + 1];
+    digestHex[0] = '0';
+    digestHex[1] = 'x';
+    hex_encode_lower(digest32, 32, digestHex + 2);
+    digestHex[66] = '\0';
+
+    // 3) prefixedHash = keccak256( EIP-191 prefix with len(digestHex) + digestHex )
+    size_t pref_len = 0;
+    uint8_t *pref = prefixed_message_malloc((const uint8_t*)digestHex, strlen(digestHex), &pref_len);
+
+    uint8_t prefixedHash32[32];
+    keccak256(pref, pref_len, prefixedHash32);
+
+    memset(pref, 0, pref_len);
+    free(pref);
+
+    // 4) sign prefixedHash32 directly
+    return secp256k1_sign_hash65_hex_v01(ctx, seckey32, prefixedHash32);
 }

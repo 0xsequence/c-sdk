@@ -1,18 +1,20 @@
 #include "sequence_login.h"
 
 #include <ctype.h>
+#include <secp256k1_recovery.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "evm/eoa_wallet.h"
-#include "evm/sign_message.h"
 #include "utils/globals.h"
 #include "evm/keccak256.h"
+#include "evm/sign_message.h"
 #include "networking/http_client.h"
 #include "requests/build_commit_verifier_json.h"
 #include "requests/build_complete_auth_json.h"
 #include "requests/initiate_auth_intent_return.h"
 #include "requests/open_session_intent_return.h"
+#include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
 static eoa_wallet_t *cur_signer = NULL;
@@ -20,6 +22,10 @@ static char *cur_challenge = NULL;
 
 static char *sign_and_send(const char *endpoint, const char *payload)
 {
+    char *seckeyHex = bytes_to_hex(cur_signer->seckey, 32);
+
+    printf("seckeyHex: %s", seckeyHex);
+
     const char *address = eoa_wallet_get_address(cur_signer->ctx, &cur_signer->pubkey);
 
     const char *tmpl = "POST /rpc/Wallet{0}\n\n{1}";
@@ -31,12 +37,11 @@ static char *sign_and_send(const char *endpoint, const char *payload)
     uint8_t hashed_to_sign[32];
     keccak256((const uint8_t*)data_to_sign, strlen(data_to_sign), hashed_to_sign);
 
-    const char *sig = wallet_sign_message_hex_eip191(
-        cur_signer->seckey,
-        cur_signer->ctx,
-        hashed_to_sign,
-        sizeof(hashed_to_sign),
-        NULL, 0);
+    char *digest32Hex = bytes_to_hex(hashed_to_sign, 32);
+
+    printf("digest32Hex: %s\n", digest32Hex);
+
+    char *sig = wallet_sign_message_hex_eip191(cur_signer->ctx, cur_signer->seckey, data_to_sign);
 
     HttpClient *c = http_client_create(g_wallet_api_url);
     if (!c) {
@@ -53,7 +58,7 @@ static char *sign_and_send(const char *endpoint, const char *payload)
     http_client_add_header(c, "Accept: application/json");
     http_client_add_header(c, auth_header);
 
-    printf(">> %s (with header %s)\n", payload, auth_header);
+    printf(">> %s (with header: %s)\n", payload, auth_header);
 
     HttpResponse r = http_client_post_json(c, endpoint, payload, 10000);
 
