@@ -17,6 +17,6 @@ typedef struct {
     Identity identity;
     Wallet  *wallets;       // dynamic array
     size_t   wallet_count;
-} SequenceCompleteAuthResponse;
+} sequence_complete_auth_return;
 
-SequenceCompleteAuthResponse sequence_build_complete_auth_return(const char *json);
+sequence_complete_auth_return sequence_build_complete_auth_return(const char *json);

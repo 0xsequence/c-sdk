@@ -4,11 +4,11 @@
 #include <string.h>
 #include <_string.h>
 
-sequence_wallet_t *sequence_wallet_from_response(
+sequence_wallet *sequence_wallet_from_response(
     const char *address,
     const uint8_t seckey[32])
 {
-    sequence_wallet_t *w = calloc(1, sizeof(*w));
+    sequence_wallet *w = calloc(1, sizeof(*w));
     if (!w) return NULL;
 
     w->address    = address    ? strdup(address)    : NULL;
@@ -20,7 +20,7 @@ sequence_wallet_t *sequence_wallet_from_response(
     return w;
 }
 
-void sequence_wallet_free(sequence_wallet_t *w) {
+void sequence_wallet_free(sequence_wallet *w) {
     if (!w) return;
 
     free(w->address);

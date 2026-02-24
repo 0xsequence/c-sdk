@@ -96,7 +96,7 @@ int sequence_sign_in_with_email(const char *email) {
     return 1;
 }
 
-SequenceCompleteAuthResponse sequence_confirm_email_sign_in(const char *email, const char *code) {
+sequence_complete_auth_return sequence_confirm_email_sign_in(const char *email, const char *code) {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
 
@@ -118,12 +118,12 @@ SequenceCompleteAuthResponse sequence_confirm_email_sign_in(const char *email, c
     const char *complete_auth_json = sequence_build_complete_auth_json(email, hashedAnswerHex);
     const char *body = sign_and_send("/CompleteAuth", complete_auth_json);
 
-    const SequenceCompleteAuthResponse response = sequence_build_complete_auth_return(body);
+    const sequence_complete_auth_return response = sequence_build_complete_auth_return(body);
 
     return response;
 }
 
-sequence_wallet_t *sequence_use_wallet(const char *walletType)
+sequence_wallet *sequence_use_wallet(const char *walletType)
 {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
@@ -135,14 +135,14 @@ sequence_wallet_t *sequence_use_wallet(const char *walletType)
 
     const SequenceWalletResponse response = sequence_build_wallet_return(body);
 
-    sequence_wallet_t *sequence_wallet = sequence_wallet_from_response(
+    sequence_wallet *sequence_wallet = sequence_wallet_from_response(
         response.wallet.address,
         cur_signer->seckey);
 
     return sequence_wallet;
 }
 
-sequence_wallet_t *sequence_create_wallet(const char *walletType)
+sequence_wallet *sequence_create_wallet(const char *walletType)
 {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
@@ -154,7 +154,7 @@ sequence_wallet_t *sequence_create_wallet(const char *walletType)
 
     const SequenceWalletResponse response = sequence_build_wallet_return(body);
 
-    sequence_wallet_t *sequence_wallet = sequence_wallet_from_response(
+    sequence_wallet *sequence_wallet = sequence_wallet_from_response(
         response.wallet.address,
         cur_signer->seckey);
 

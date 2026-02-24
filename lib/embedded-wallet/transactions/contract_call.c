@@ -18,7 +18,7 @@
 #include <inttypes.h>
 
 char *sequence_contract_call(
-    sequence_wallet_t *wallet,
+    sequence_wallet *wallet,
     uint64_t chain_id,
     SequenceContractCallData *transactions,
     size_t transactions_len

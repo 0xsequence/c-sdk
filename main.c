@@ -67,11 +67,11 @@ int main(void) {
     }
     strip_newline(code);
 
-    const SequenceCompleteAuthResponse response = sequence_confirm_email_sign_in(email, code);
+    const sequence_complete_auth_return response = sequence_confirm_email_sign_in(email, code);
 
     printf("Wallets count: %lu\n", response.wallet_count);
 
-    sequence_wallet_t *wallet;
+    sequence_wallet *wallet;
     if (response.wallet_count == 0)
     {
         wallet = sequence_create_wallet("Ethereum_EOA");

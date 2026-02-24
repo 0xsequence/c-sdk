@@ -12,8 +12,8 @@ static char *dup_json_string(const cJSON *item) {
     return out;
 }
 
-SequenceCompleteAuthResponse sequence_build_complete_auth_return(const char *json) {
-    SequenceCompleteAuthResponse resp = {0};
+sequence_complete_auth_return sequence_build_complete_auth_return(const char *json) {
+    sequence_complete_auth_return resp = {0};
     if (!json) return resp;
 
     cJSON *root = cJSON_Parse(json);
