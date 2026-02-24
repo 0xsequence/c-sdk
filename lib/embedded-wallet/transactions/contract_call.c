@@ -94,7 +94,7 @@ char *sequence_contract_call(
         "sendTransaction",
         issuedAt,
         expiresAt,
-        wallet->session_id,
+        "wallet->session_id",
         sig
     );
 

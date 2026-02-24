@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 typedef struct {
     char *type;
     char *sub;
@@ -13,7 +15,8 @@ typedef struct {
 
 typedef struct {
     Identity identity;
-    Wallet   wallet;   // first wallet only
+    Wallet  *wallets;       // dynamic array
+    size_t   wallet_count;
 } SequenceCompleteAuthResponse;
 
 SequenceCompleteAuthResponse sequence_build_complete_auth_return(const char *json);

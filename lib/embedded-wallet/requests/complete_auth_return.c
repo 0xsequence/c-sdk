@@ -27,19 +27,30 @@ SequenceCompleteAuthResponse sequence_build_complete_auth_return(const char *jso
         resp.identity.email = dup_json_string(cJSON_GetObjectItem(identity, "email"));
     }
 
-    /* ---- wallets[0] ---- */
+    /* ---- wallets[] ---- */
     cJSON *wallets = cJSON_GetObjectItemCaseSensitive(root, "wallets");
     if (cJSON_IsArray(wallets)) {
-        cJSON *wallet = cJSON_GetArrayItem(wallets, 0);
-        if (cJSON_IsObject(wallet)) {
-            resp.wallet.type    = dup_json_string(cJSON_GetObjectItem(wallet, "type"));
-            resp.wallet.address = dup_json_string(cJSON_GetObjectItem(wallet, "address"));
+        resp.wallet_count = (size_t)cJSON_GetArraySize(wallets);
+        if (resp.wallet_count > 0) {
+            resp.wallets = calloc(resp.wallet_count, sizeof(Wallet));
 
-            cJSON *index = cJSON_GetObjectItem(wallet, "index");
-            if (cJSON_IsNumber(index))
-                resp.wallet.index = index->valueint;
+            for (size_t i = 0; i < resp.wallet_count; ++i) {
+                cJSON *wallet = cJSON_GetArrayItem(wallets, (int)i);
+                if (!cJSON_IsObject(wallet)) continue;
 
-            resp.wallet.comment = dup_json_string(cJSON_GetObjectItem(wallet, "comment"));
+                resp.wallets[i].type =
+                    dup_json_string(cJSON_GetObjectItem(wallet, "type"));
+
+                resp.wallets[i].address =
+                    dup_json_string(cJSON_GetObjectItem(wallet, "address"));
+
+                cJSON *index = cJSON_GetObjectItem(wallet, "index");
+                if (cJSON_IsNumber(index))
+                    resp.wallets[i].index = index->valueint;
+
+                resp.wallets[i].comment =
+                    dup_json_string(cJSON_GetObjectItem(wallet, "comment"));
+            }
         }
     }
 

@@ -55,7 +55,7 @@ int main(void) {
     }
     strip_newline(email);
 
-    if (!sign_in_with_email(email)) {
+    if (!sequence_sign_in_with_email(email)) {
         fprintf(stderr, "sign_in_with_email failed\n");
         return 1;
     }
@@ -67,12 +67,21 @@ int main(void) {
     }
     strip_newline(code);
 
-    SequenceCompleteAuthResponse response = confirm_email_sign_in(email, code);
+    const SequenceCompleteAuthResponse response = sequence_confirm_email_sign_in(email, code);
 
-    printf("Wallet address: %s\n", response.wallet.address);
-    printf("Wallet index: %d\n", response.wallet.index);
+    printf("Wallets count: %lu\n", response.wallet_count);
 
-    use_wallet(response.wallet.type);
+    sequence_wallet_t *wallet;
+    if (response.wallet_count == 0)
+    {
+        wallet = sequence_create_wallet("Ethereum_EOA");
+    }
+    else
+    {
+        wallet = sequence_use_wallet(response.wallets[0].type);
+    }
+
+    printf("Wallet address: %s\n", wallet->address);
 
     // **
     // CONTRACT CALL

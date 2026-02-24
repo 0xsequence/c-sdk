@@ -55,6 +55,8 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/requests/build_signable_intent_json.c
         lib/embedded-wallet/requests/build_use_wallet_json.c
         lib/embedded-wallet/requests/build_use_wallet_json.h
+        lib/embedded-wallet/requests/wallet_return.c
+        lib/embedded-wallet/requests/wallet_return.h
         lib/embedded-wallet/requests/build_create_wallet_json.c
         lib/embedded-wallet/requests/build_create_wallet_json.h
         lib/embedded-wallet/requests/commit_verifier_return.c
