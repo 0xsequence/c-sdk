@@ -5,6 +5,22 @@
 #include "lib/embedded-wallet/sequence_login.h"
 #include "lib/embedded-wallet/transactions/contract_call.h"
 
+#define READ_LINE(prompt, buf) do {                                   \
+    printf("%s", (prompt));                                           \
+    if (!fgets((buf), sizeof(buf), stdin)) {                          \
+        fprintf(stderr, "Failed to read input\n");                    \
+        return 1;                                                     \
+    }                                                                 \
+    strip_newline((buf));                                             \
+} while (0)
+
+#define REQUIRE(ok, msg) do {                                         \
+    if (!(ok)) {                                                      \
+        fprintf(stderr, "%s\n", (msg));                               \
+        return 1;                                                     \
+    }                                                                 \
+} while (0)
+
 static void strip_newline(char *s) {
     if (!s)
         return;
@@ -49,24 +65,10 @@ int main(void) {
     char code[64];
     char message[256];
 
-    printf("Enter email: ");
-    if (!fgets(email, sizeof(email), stdin)) {
-        fprintf(stderr, "Failed to read email\n");
-        return 1;
-    }
-    strip_newline(email);
+    READ_LINE("Enter email: ", email);
+    REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
 
-    if (!sequence_sign_in_with_email(email)) {
-        fprintf(stderr, "sign_in_with_email failed\n");
-        return 1;
-    }
-
-    printf("Enter code: ");
-    if (!fgets(code, sizeof(code), stdin)) {
-        fprintf(stderr, "Failed to read code\n");
-        return 1;
-    }
-    strip_newline(code);
+    READ_LINE("Enter code: ", code);
 
     const sequence_complete_auth_return response = sequence_confirm_email_sign_in(email, code);
 
@@ -82,12 +84,7 @@ int main(void) {
         wallet = sequence_use_wallet(response.wallets[0].type);
     }
 
-    printf("Enter message to sign: ");
-    if (!fgets(message, sizeof(message), stdin)) {
-        fprintf(stderr, "Failed to read message\n");
-        return 1;
-    }
-    strip_newline(message);
+    READ_LINE("Enter message to sign: ", message);
 
     printf("Wallet address: %s\n", wallet->address);
 
