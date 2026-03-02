@@ -13,9 +13,11 @@
 #include "requests/build_commit_verifier_json.h"
 #include "requests/build_complete_auth_json.h"
 #include "requests/build_create_wallet_json.h"
+#include "requests/build_sign_message_json.h"
 #include "requests/build_use_wallet_json.h"
 #include "requests/commit_verifier_return.h"
 #include "requests/initiate_auth_intent_return.h"
+#include "requests/sign_message_return.h"
 #include "requests/wallet_return.h"
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
@@ -159,4 +161,30 @@ sequence_wallet *sequence_create_wallet(const char *walletType)
         cur_signer->seckey);
 
     return sequence_wallet;
+}
+
+char *sequence_sign_message(const char *network, const char *message)
+{
+    if (!cur_signer || !cur_signer->ctx) {
+        fprintf(stderr, "No signer initialized\n");
+        return NULL;
+    }
+
+    const char *json = build_sign_message_json(network, message);
+    const char *body = sign_and_send("/SignMessage", json);
+
+    const SequenceSignMessageResponse response = sequence_build_sign_message_return(body);
+
+    return response.signature;
+}
+
+char *sequence_send_transaction()
+{
+    if (!cur_signer || !cur_signer->ctx)
+    {
+        fprintf(stderr, "No signer initialized\n");
+        return NULL;
+    }
+
+    return "";
 }

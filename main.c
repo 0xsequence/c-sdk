@@ -47,6 +47,7 @@ int main(void) {
 
     char email[256];
     char code[64];
+    char message[256];
 
     printf("Enter email: ");
     if (!fgets(email, sizeof(email), stdin)) {
@@ -74,14 +75,25 @@ int main(void) {
     sequence_wallet *wallet;
     if (response.wallet_count == 0)
     {
-        wallet = sequence_create_wallet("Ethereum_EOA");
+        wallet = sequence_create_wallet("Ethereum_SequenceV3");
     }
     else
     {
         wallet = sequence_use_wallet(response.wallets[0].type);
     }
 
+    printf("Enter message to sign: ");
+    if (!fgets(message, sizeof(message), stdin)) {
+        fprintf(stderr, "Failed to read message\n");
+        return 1;
+    }
+    strip_newline(message);
+
     printf("Wallet address: %s\n", wallet->address);
+
+    const char *signature = sequence_sign_message("amoy", message);
+
+    printf("Signature from '%s': %s\n", message, signature);
 
     // **
     // CONTRACT CALL
