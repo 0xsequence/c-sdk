@@ -69,10 +69,7 @@ int main(void) {
     REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
 
     READ_LINE("Enter code: ", code);
-
     const sequence_complete_auth_return response = sequence_confirm_email_sign_in(email, code);
-
-    printf("Wallets count: %lu\n", response.wallet_count);
 
     sequence_wallet *wallet;
     if (response.wallet_count == 0)
@@ -84,12 +81,14 @@ int main(void) {
         wallet = sequence_use_wallet(response.wallets[0].type);
     }
 
-    READ_LINE("Enter message to sign: ", message);
-
     printf("Wallet address: %s\n", wallet->address);
 
-    const char *signature = sequence_sign_message("amoy", message);
+    // **
+    // SIGN MESSAGE
+    // **
 
+    READ_LINE("Enter message to sign: ", message);
+    const char *signature = sequence_sign_message("amoy", message);
     printf("Signature from '%s': %s\n", message, signature);
 
     // **
