@@ -6,9 +6,9 @@ set(CMAKE_C_STANDARD 99)
 add_executable(sequence-c-sdk main.c
         lib/networking/http_client.h
         lib/networking/http_client.c
-        lib/embedded-wallet/sequence_login.c
-        lib/embedded-wallet/sequence_login.h
-        lib/embedded-wallet/sequence_login.c
+        lib/embedded-wallet/sequence_connector.c
+        lib/embedded-wallet/sequence_connector.h
+        lib/embedded-wallet/sequence_connector.c
         lib/embedded-wallet/requests/build_initiate_auth_intent_json.h
         lib/embedded-wallet/requests/build_initiate_auth_intent_json.c
         lib/embedded-wallet/sequence_config.h
@@ -57,8 +57,12 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/requests/build_sign_message_json.h
         lib/embedded-wallet/requests/build_use_wallet_json.c
         lib/embedded-wallet/requests/build_use_wallet_json.h
+        lib/embedded-wallet/requests/build_send_transaction_json.c
+        lib/embedded-wallet/requests/build_send_transaction_json.h
         lib/embedded-wallet/requests/wallet_return.c
         lib/embedded-wallet/requests/wallet_return.h
+        lib/embedded-wallet/requests/send_transaction_return.c
+        lib/embedded-wallet/requests/send_transaction_return.h
         lib/embedded-wallet/requests/sign_message_return.c
         lib/embedded-wallet/requests/sign_message_return.h
         lib/embedded-wallet/requests/build_create_wallet_json.c

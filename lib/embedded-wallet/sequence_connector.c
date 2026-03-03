@@ -1,7 +1,6 @@
-#include "sequence_login.h"
+#include "sequence_connector.h"
 
 #include <ctype.h>
-#include <secp256k1_recovery.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,10 +12,12 @@
 #include "requests/build_commit_verifier_json.h"
 #include "requests/build_complete_auth_json.h"
 #include "requests/build_create_wallet_json.h"
+#include "requests/build_send_transaction_json.h"
 #include "requests/build_sign_message_json.h"
 #include "requests/build_use_wallet_json.h"
 #include "requests/commit_verifier_return.h"
 #include "requests/initiate_auth_intent_return.h"
+#include "requests/send_transaction_return.h"
 #include "requests/sign_message_return.h"
 #include "requests/wallet_return.h"
 #include "utils/hex_utils.h"
@@ -144,14 +145,14 @@ sequence_wallet *sequence_use_wallet(const char *walletType)
     return sequence_wallet;
 }
 
-sequence_wallet *sequence_create_wallet(const char *walletType)
+sequence_wallet *sequence_create_wallet()
 {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
         return NULL;
     }
 
-    const char *create_wallet_json = sequence_build_create_wallet_json(walletType);
+    const char *create_wallet_json = sequence_build_create_wallet_json("Ethereum_SequenceV3");
     const char *body = sign_and_send("/CreateWallet", create_wallet_json);
 
     const SequenceWalletResponse response = sequence_build_wallet_return(body);
@@ -178,7 +179,7 @@ char *sequence_sign_message(const char *network, const char *message)
     return response.signature;
 }
 
-char *sequence_send_transaction()
+char *sequence_send_transaction(const char *network, const char *to, const char *value)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
@@ -186,5 +187,9 @@ char *sequence_send_transaction()
         return NULL;
     }
 
+    const char *json = build_send_transaction_json(network, to, value);
+    const char *body = sign_and_send("/SendTransaction", json);
+
+    const SequenceSendTransactionResponse response = sequence_build_send_transaction_return(body);
     return "";
 }

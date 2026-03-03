@@ -2,7 +2,7 @@
 #include <string.h>
 #include "lib/indexer/get_token_balances.h"
 #include "lib/embedded-wallet/sequence_config.h"
-#include "lib/embedded-wallet/sequence_login.h"
+#include "lib/embedded-wallet/sequence_connector.h"
 #include "lib/embedded-wallet/transactions/contract_call.h"
 
 #define READ_LINE(prompt, buf) do {                                   \
@@ -74,7 +74,7 @@ int main(void) {
     sequence_wallet *wallet;
     if (response.wallet_count == 0)
     {
-        wallet = sequence_create_wallet("Ethereum_SequenceV3");
+        wallet = sequence_create_wallet();
     }
     else
     {
