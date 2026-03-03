@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 SequenceGetTokenBalancesReturn *sequence_get_token_balances(
-    uint64_t chain_id,
+    const char *chain_id,
     const char *contract_address,
     const char *wallet_address,
     bool include_metadata

@@ -9,8 +9,6 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/sequence_connector.c
         lib/embedded-wallet/sequence_connector.h
         lib/embedded-wallet/sequence_connector.c
-        lib/embedded-wallet/requests/build_initiate_auth_intent_json.h
-        lib/embedded-wallet/requests/build_initiate_auth_intent_json.c
         lib/embedded-wallet/sequence_config.h
         lib/embedded-wallet/sequence_config.c
         lib/networking/http_client_mbed.h
@@ -34,25 +32,17 @@ add_executable(sequence-c-sdk main.c
         lib/evm/sign_message.c
         lib/evm/eoa_wallet.h
         lib/evm/eoa_wallet.c
-        lib/embedded-wallet/requests/build_intent_json.h
-        lib/embedded-wallet/requests/build_intent_json.c
         lib/utils/hex_utils.h
-        lib/embedded-wallet/requests/build_open_session_intent_json.c
         lib/utils/hex_utils.c
         lib/utils/timestamps.c
         lib/utils/byte_utils.c
         lib/utils/byte_utils.h
         lib/utils/string_utils.h
         lib/utils/string_utils.c
-        lib/embedded-wallet/requests/build_contract_call_intent_json.c
-        lib/embedded-wallet/transactions/contract_call.h
-        lib/embedded-wallet/transactions/contract_call.c
         lib/embedded-wallet/requests/build_complete_auth_json.c
         lib/embedded-wallet/requests/build_complete_auth_json.h
         lib/embedded-wallet/requests/build_commit_verifier_json.c
         lib/embedded-wallet/requests/build_commit_verifier_json.h
-        lib/embedded-wallet/requests/build_signable_intent_json.h
-        lib/embedded-wallet/requests/build_signable_intent_json.c
         lib/embedded-wallet/requests/build_sign_message_json.c
         lib/embedded-wallet/requests/build_sign_message_json.h
         lib/embedded-wallet/requests/build_use_wallet_json.c
@@ -71,22 +61,12 @@ add_executable(sequence-c-sdk main.c
         lib/embedded-wallet/requests/commit_verifier_return.h
         lib/embedded-wallet/requests/complete_auth_return.c
         lib/embedded-wallet/requests/complete_auth_return.h
-        lib/embedded-wallet/requests/initiate_auth_intent_return.h
-        lib/embedded-wallet/requests/initiate_auth_intent_return.h
-        lib/embedded-wallet/requests/initiate_auth_intent_return.c
-        lib/embedded-wallet/requests/open_session_intent_return.h
-        lib/embedded-wallet/requests/open_session_intent_return.c
         lib/embedded-wallet/sequence_wallet.h
         lib/embedded-wallet/sequence_wallet.c
         lib/utils/uuid.h
         lib/utils/uuid.c
-        lib/embedded-wallet/requests/transaction_intent_return.h
-        lib/embedded-wallet/requests/transaction_intent_return.c
         lib/utils/globals.h
         lib/utils/globals.c
-        lib/embedded-wallet/transactions/get_fee_options.h
-        lib/embedded-wallet/transactions/get_fee_options.c
-        lib/embedded-wallet/transactions/contract_call_data.h
 )
 
 target_include_directories(sequence-c-sdk PRIVATE

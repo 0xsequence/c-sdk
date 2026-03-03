@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "chains/chain_bindings.h"
 #include "evm/eoa_wallet.h"
 #include "utils/globals.h"
 #include "evm/keccak256.h"
@@ -16,7 +17,6 @@
 #include "requests/build_sign_message_json.h"
 #include "requests/build_use_wallet_json.h"
 #include "requests/commit_verifier_return.h"
-#include "requests/initiate_auth_intent_return.h"
 #include "requests/send_transaction_return.h"
 #include "requests/sign_message_return.h"
 #include "requests/wallet_return.h"
@@ -164,12 +164,14 @@ sequence_wallet *sequence_create_wallet()
     return sequence_wallet;
 }
 
-char *sequence_sign_message(const char *network, const char *message)
+char *sequence_sign_message(const char *chain_id, const char *message)
 {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
         return NULL;
     }
+
+    const char *network = sequence_get_chain_name(chain_id);
 
     const char *json = build_sign_message_json(network, message);
     const char *body = sign_and_send("/SignMessage", json);
@@ -179,13 +181,15 @@ char *sequence_sign_message(const char *network, const char *message)
     return response.signature;
 }
 
-char *sequence_send_transaction(const char *network, const char *to, const char *value)
+char *sequence_send_transaction(const char *chain_id, const char *to, const char *value)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
         fprintf(stderr, "No signer initialized\n");
         return NULL;
     }
+
+    const char *network = sequence_get_chain_name(chain_id);
 
     const char *json = build_send_transaction_json(network, to, value);
     const char *body = sign_and_send("/SendTransaction", json);
