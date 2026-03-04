@@ -19,4 +19,6 @@ typedef struct {
     size_t   wallet_count;
 } sequence_complete_auth_return;
 
-sequence_complete_auth_return sequence_build_complete_auth_return(const char *json);
+sequence_complete_auth_return *sequence_build_complete_auth_return(const char *json);
+
+void sequence_complete_auth_return_free(sequence_complete_auth_return *resp);

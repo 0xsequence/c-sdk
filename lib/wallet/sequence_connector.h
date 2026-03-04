@@ -3,7 +3,7 @@
 
 int sequence_sign_in_with_email(const char *email);
 
-sequence_complete_auth_return sequence_confirm_email_sign_in(const char *email, const char *code);
+sequence_complete_auth_return *sequence_confirm_email_sign_in(const char *email, const char *code);
 
 sequence_wallet *sequence_use_wallet(const char *walletType);
 

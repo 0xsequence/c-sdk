@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
-#include "../embedded-wallet/sequence_config.h"
+#include "../wallet/sequence_config.h"
 
 struct HttpClient {
     char *base_url;

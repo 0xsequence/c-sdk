@@ -93,26 +93,28 @@ int sequence_sign_in_with_email(const char *email) {
     const char *commit_verifier_json = sequence_build_commit_verifier_json(email);
     const char *body = sign_and_send("/CommitVerifier", commit_verifier_json);
 
-    const SequenceCommitVerifierResponse response = sequence_build_commit_verifier_return(body);
-    cur_challenge = strdup(response.challenge);
+    sequence_commit_verifier_response *response = sequence_build_commit_verifier_return(body);
+    cur_challenge = strdup(response->challenge);
+
+    sequence_commit_verifier_response_free(response);
 
     return 1;
 }
 
-sequence_complete_auth_return sequence_confirm_email_sign_in(const char *email, const char *code) {
+sequence_complete_auth_return *sequence_confirm_email_sign_in(const char *email, const char *code) {
     if (!cur_signer || !cur_signer->ctx) {
         fprintf(stderr, "No signer initialized\n");
-
+        return NULL;
     }
 
     if (!cur_challenge) {
         fprintf(stderr, "No challenge available\n");
         free(cur_signer);
         cur_signer = NULL;
-        //return NULL;
+        return NULL;
     }
 
-    char *preHashAnswer = concat_malloc(cur_challenge, code);
+    const char *preHashAnswer = concat_malloc(cur_challenge, code);
 
     uint8_t hashed_to_sign[32];
     keccak256((const uint8_t*)preHashAnswer, strlen(preHashAnswer), hashed_to_sign);
@@ -121,7 +123,7 @@ sequence_complete_auth_return sequence_confirm_email_sign_in(const char *email, 
     const char *complete_auth_json = sequence_build_complete_auth_json(email, hashedAnswerHex);
     const char *body = sign_and_send("/CompleteAuth", complete_auth_json);
 
-    const sequence_complete_auth_return response = sequence_build_complete_auth_return(body);
+    sequence_complete_auth_return *response = sequence_build_complete_auth_return(body);
 
     return response;
 }
@@ -136,11 +138,13 @@ sequence_wallet *sequence_use_wallet(const char *walletType)
     const char *use_wallet_json = sequence_build_use_wallet_json(walletType);
     const char *body = sign_and_send("/UseWallet", use_wallet_json);
 
-    const SequenceWalletResponse response = sequence_build_wallet_return(body);
+    sequence_wallet_response *response = sequence_build_wallet_return(body);
 
     sequence_wallet *sequence_wallet = sequence_wallet_from_response(
-        response.wallet.address,
+        response->wallet.address,
         cur_signer->seckey);
+
+    sequence_wallet_response_free(response);
 
     return sequence_wallet;
 }
@@ -155,11 +159,13 @@ sequence_wallet *sequence_create_wallet()
     const char *create_wallet_json = sequence_build_create_wallet_json("Ethereum_SequenceV3");
     const char *body = sign_and_send("/CreateWallet", create_wallet_json);
 
-    const SequenceWalletResponse response = sequence_build_wallet_return(body);
+    sequence_wallet_response *response = sequence_build_wallet_return(body);
 
     sequence_wallet *sequence_wallet = sequence_wallet_from_response(
-        response.wallet.address,
+        response->wallet.address,
         cur_signer->seckey);
+
+    sequence_wallet_response_free(response);
 
     return sequence_wallet;
 }
@@ -176,9 +182,12 @@ char *sequence_sign_message(const char *chain_id, const char *message)
     const char *json = build_sign_message_json(network, message);
     const char *body = sign_and_send("/SignMessage", json);
 
-    const SequenceSignMessageResponse response = sequence_build_sign_message_return(body);
+    sequence_sign_message_response *response = sequence_build_sign_message_return(body);
+    char *signature = strdup(response->signature);
 
-    return response.signature;
+    sequence_sign_message_response_free(response);
+
+    return signature;
 }
 
 char *sequence_send_transaction(const char *chain_id, const char *to, const char *value)
@@ -194,6 +203,10 @@ char *sequence_send_transaction(const char *chain_id, const char *to, const char
     const char *json = build_send_transaction_json(network, to, value);
     const char *body = sign_and_send("/SendTransaction", json);
 
-    const SequenceSendTransactionResponse response = sequence_build_send_transaction_return(body);
-    return "";
+    sequence_send_transaction_response *response = sequence_build_send_transaction_return(body);
+    char *txHash = strdup(response->response.txHash);
+
+    sequence_send_transaction_response_free(response);
+
+    return txHash;
 }

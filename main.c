@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "lib/indexer/get_token_balances.h"
-#include "lib/embedded-wallet/sequence_config.h"
-#include "lib/embedded-wallet/sequence_connector.h"
+#include "lib/wallet/sequence_config.h"
+#include "lib/wallet/sequence_connector.h"
 
 #define READ_LINE(prompt, buf) do {                                   \
     printf("%s", (prompt));                                           \
@@ -68,17 +68,19 @@ int main(void) {
     REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
 
     READ_LINE("Enter code: ", code);
-    const sequence_complete_auth_return response = sequence_confirm_email_sign_in(email, code);
+    sequence_complete_auth_return *response = sequence_confirm_email_sign_in(email, code);
 
     sequence_wallet *wallet;
-    if (response.wallet_count == 0)
+    if (response->wallet_count == 0)
     {
         wallet = sequence_create_wallet();
     }
     else
     {
-        wallet = sequence_use_wallet(response.wallets[0].type);
+        wallet = sequence_use_wallet(response->wallets[0].type);
     }
+
+    sequence_complete_auth_return_free(response);
 
     printf("Wallet address: %s\n", wallet->address);
 

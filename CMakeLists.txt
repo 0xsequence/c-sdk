@@ -6,11 +6,11 @@ set(CMAKE_C_STANDARD 99)
 add_executable(sequence-c-sdk main.c
         lib/networking/http_client.h
         lib/networking/http_client.c
-        lib/embedded-wallet/sequence_connector.c
-        lib/embedded-wallet/sequence_connector.h
-        lib/embedded-wallet/sequence_connector.c
-        lib/embedded-wallet/sequence_config.h
-        lib/embedded-wallet/sequence_config.c
+        lib/wallet/sequence_connector.c
+        lib/wallet/sequence_connector.h
+        lib/wallet/sequence_connector.c
+        lib/wallet/sequence_config.h
+        lib/wallet/sequence_config.c
         lib/networking/http_client_mbed.h
         lib/networking/http_client_mbed.c
         lib/indexer/get_token_balances.h
@@ -39,30 +39,30 @@ add_executable(sequence-c-sdk main.c
         lib/utils/byte_utils.h
         lib/utils/string_utils.h
         lib/utils/string_utils.c
-        lib/embedded-wallet/requests/build_complete_auth_json.c
-        lib/embedded-wallet/requests/build_complete_auth_json.h
-        lib/embedded-wallet/requests/build_commit_verifier_json.c
-        lib/embedded-wallet/requests/build_commit_verifier_json.h
-        lib/embedded-wallet/requests/build_sign_message_json.c
-        lib/embedded-wallet/requests/build_sign_message_json.h
-        lib/embedded-wallet/requests/build_use_wallet_json.c
-        lib/embedded-wallet/requests/build_use_wallet_json.h
-        lib/embedded-wallet/requests/build_send_transaction_json.c
-        lib/embedded-wallet/requests/build_send_transaction_json.h
-        lib/embedded-wallet/requests/wallet_return.c
-        lib/embedded-wallet/requests/wallet_return.h
-        lib/embedded-wallet/requests/send_transaction_return.c
-        lib/embedded-wallet/requests/send_transaction_return.h
-        lib/embedded-wallet/requests/sign_message_return.c
-        lib/embedded-wallet/requests/sign_message_return.h
-        lib/embedded-wallet/requests/build_create_wallet_json.c
-        lib/embedded-wallet/requests/build_create_wallet_json.h
-        lib/embedded-wallet/requests/commit_verifier_return.c
-        lib/embedded-wallet/requests/commit_verifier_return.h
-        lib/embedded-wallet/requests/complete_auth_return.c
-        lib/embedded-wallet/requests/complete_auth_return.h
-        lib/embedded-wallet/sequence_wallet.h
-        lib/embedded-wallet/sequence_wallet.c
+        lib/wallet/requests/build_complete_auth_json.c
+        lib/wallet/requests/build_complete_auth_json.h
+        lib/wallet/requests/build_commit_verifier_json.c
+        lib/wallet/requests/build_commit_verifier_json.h
+        lib/wallet/requests/build_sign_message_json.c
+        lib/wallet/requests/build_sign_message_json.h
+        lib/wallet/requests/build_use_wallet_json.c
+        lib/wallet/requests/build_use_wallet_json.h
+        lib/wallet/requests/build_send_transaction_json.c
+        lib/wallet/requests/build_send_transaction_json.h
+        lib/wallet/requests/wallet_return.c
+        lib/wallet/requests/wallet_return.h
+        lib/wallet/requests/send_transaction_return.c
+        lib/wallet/requests/send_transaction_return.h
+        lib/wallet/requests/sign_message_return.c
+        lib/wallet/requests/sign_message_return.h
+        lib/wallet/requests/build_create_wallet_json.c
+        lib/wallet/requests/build_create_wallet_json.h
+        lib/wallet/requests/commit_verifier_return.c
+        lib/wallet/requests/commit_verifier_return.h
+        lib/wallet/requests/complete_auth_return.c
+        lib/wallet/requests/complete_auth_return.h
+        lib/wallet/sequence_wallet.h
+        lib/wallet/sequence_wallet.c
         lib/utils/uuid.h
         lib/utils/uuid.c
         lib/utils/globals.h

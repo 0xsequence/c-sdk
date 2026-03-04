@@ -12,29 +12,40 @@ static char *dup_json_string(const cJSON *item) {
     return out;
 }
 
-SequenceWalletResponse sequence_build_wallet_return(const char *json) {
-    SequenceWalletResponse resp = (SequenceWalletResponse){0};
-    if (!json) return resp;
+sequence_wallet_response *sequence_build_wallet_return(const char *json) {
+    if (!json) return NULL;
 
     cJSON *root = cJSON_Parse(json);
-    if (!root) return resp;
+    if (!root) return NULL;
 
+    sequence_wallet_response *resp = malloc(sizeof(*resp));
     cJSON *wallet = cJSON_GetObjectItemCaseSensitive(root, "wallet");
     if (cJSON_IsObject(wallet)) {
-        resp.wallet.type =
+        resp->wallet.type =
             dup_json_string(cJSON_GetObjectItem(wallet, "type"));
 
-        resp.wallet.address =
+        resp->wallet.address =
             dup_json_string(cJSON_GetObjectItem(wallet, "address"));
 
         cJSON *index = cJSON_GetObjectItem(wallet, "index");
         if (cJSON_IsNumber(index))
-            resp.wallet.index = index->valueint;
+            resp->wallet.index = index->valueint;
 
-        resp.wallet.comment =
+        resp->wallet.comment =
             dup_json_string(cJSON_GetObjectItem(wallet, "comment"));
     }
 
     cJSON_Delete(root);
     return resp;
+}
+
+void sequence_wallet_response_free(sequence_wallet_response *data)
+{
+    if (!data) return;
+
+    free(data->wallet.type);
+    free(data->wallet.address);
+    free(data->wallet.comment);
+
+    free(data);
 }

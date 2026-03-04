@@ -20,25 +20,28 @@ static void scvr_set_string(char **dst, const cJSON *obj_item) {
     }
 }
 
-SequenceCommitVerifierResponse sequence_build_commit_verifier_return(const char *json) {
-    SequenceCommitVerifierResponse resp = (SequenceCommitVerifierResponse){0};
-    if (!json) return resp;
+sequence_commit_verifier_response *sequence_build_commit_verifier_return(const char *json) {
+    if (!json)
+    {
+        return NULL;
+    }
 
     cJSON *root = cJSON_Parse(json);
     if (!root || !cJSON_IsObject(root)) {
         if (root) cJSON_Delete(root);
-        return resp;
+        return NULL;
     }
 
-    scvr_set_string(&resp.verifier,  cJSON_GetObjectItemCaseSensitive(root, "verifier"));
-    scvr_set_string(&resp.loginHint, cJSON_GetObjectItemCaseSensitive(root, "loginHint"));
-    scvr_set_string(&resp.challenge, cJSON_GetObjectItemCaseSensitive(root, "challenge"));
+    sequence_commit_verifier_response *resp = malloc(sizeof *resp);
+    scvr_set_string(&resp->verifier,  cJSON_GetObjectItemCaseSensitive(root, "verifier"));
+    scvr_set_string(&resp->loginHint, cJSON_GetObjectItemCaseSensitive(root, "loginHint"));
+    scvr_set_string(&resp->challenge, cJSON_GetObjectItemCaseSensitive(root, "challenge"));
 
     cJSON_Delete(root);
     return resp;
 }
 
-void SequenceCommitVerifierResponse_free(SequenceCommitVerifierResponse *resp) {
+void sequence_commit_verifier_response_free(sequence_commit_verifier_response *resp) {
     if (!resp) return;
     free(resp->verifier);
     free(resp->loginHint);
@@ -46,4 +49,5 @@ void SequenceCommitVerifierResponse_free(SequenceCommitVerifierResponse *resp) {
     resp->verifier = NULL;
     resp->loginHint = NULL;
     resp->challenge = NULL;
+    free(resp);
 }
