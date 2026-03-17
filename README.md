@@ -65,3 +65,16 @@ cmake --build build
 # Send transaction
 ./build/sequence-cli send_transaction --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --chain_id 137 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
 ```
+
+#### Homebrew setup
+
+```shell
+# Remove tap if needed
+brew untap 0xsequence/c-sdk
+
+# Create tap
+brew tap 0xsequence/c-sdk https://github.com/0xsequence/c-sdk/
+
+# Install tap
+brew install 0xsequence/c-sdk/sequence
+```

@@ -1,7 +1,7 @@
 class SequenceCli < Formula
-  desc "Sequence C SDK CLI"
-  homepage "https://github.com/0xsequence/c-sdk/"
-  url "https://github.com/0xsequence/c-sdk/"
+  desc "Sequence C SDK"
+  homepage "https://github.com/0xsequence/c-sdk"
+  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.0.tar.gz"
   sha256 "SHA256_OF_TARBALL"
   license "MIT"
 
