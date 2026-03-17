@@ -36,7 +36,7 @@ int main(void) {
     // SETUP
     // **
 
-    char *access_key = "AQAAAAAAAAXVnbE_7r6-4StU84lwV9oVcKA";
+    char *access_key = "AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak";
     sequence_config_init(access_key);
 
     // **
