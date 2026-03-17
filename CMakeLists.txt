@@ -1,133 +1,98 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.20)
 project(sequence-c-sdk C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(sequence-c-sdk main.c
-        lib/networking/http_client.h
+include(GNUInstallDirs)
+
+find_package(MbedTLS CONFIG REQUIRED)
+find_package(CURL REQUIRED)
+find_package(cJSON CONFIG REQUIRED)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
+link_directories(${SECP256K1_LIBRARY_DIRS})
+
+# ---- Library ----
+
+add_library(sequence_c_sdk
         lib/networking/http_client.c
         lib/wallet/sequence_connector.c
-        lib/wallet/sequence_connector.h
-        lib/wallet/sequence_connector.c
-        lib/wallet/sequence_config.h
         lib/wallet/sequence_config.c
-        lib/networking/http_client_mbed.h
         lib/networking/http_client_mbed.c
-        lib/indexer/get_token_balances.h
         lib/indexer/get_token_balances.c
-        lib/chains/chain_bindings.h
         lib/chains/chain_bindings.c
-        lib/storage/storage_handler.h
         lib/storage/storage_handler.c
-        lib/indexer/requests/get_token_balances_args.h
         lib/indexer/requests/get_token_balances_args.c
-        lib/indexer/models/page.h
-        lib/indexer/models/balance.h
-        lib/indexer/requests/get_token_balances_return.h
         lib/indexer/requests/get_token_balances_return.c
-        lib/utils/timestamps.h
-        lib/evm/keccak256.h
         lib/evm/keccak256.c
-        lib/evm/sign_message.h
         lib/evm/sign_message.c
-        lib/evm/eoa_wallet.h
         lib/evm/eoa_wallet.c
-        lib/utils/hex_utils.h
         lib/utils/hex_utils.c
         lib/utils/timestamps.c
         lib/utils/byte_utils.c
-        lib/utils/byte_utils.h
-        lib/utils/string_utils.h
         lib/utils/string_utils.c
         lib/wallet/requests/build_complete_auth_json.c
-        lib/wallet/requests/build_complete_auth_json.h
         lib/wallet/requests/build_commit_verifier_json.c
-        lib/wallet/requests/build_commit_verifier_json.h
         lib/wallet/requests/build_sign_message_json.c
-        lib/wallet/requests/build_sign_message_json.h
         lib/wallet/requests/build_use_wallet_json.c
-        lib/wallet/requests/build_use_wallet_json.h
         lib/wallet/requests/build_send_transaction_json.c
-        lib/wallet/requests/build_send_transaction_json.h
         lib/wallet/requests/wallet_return.c
-        lib/wallet/requests/wallet_return.h
         lib/wallet/requests/send_transaction_return.c
-        lib/wallet/requests/send_transaction_return.h
         lib/wallet/requests/sign_message_return.c
-        lib/wallet/requests/sign_message_return.h
         lib/wallet/requests/build_create_wallet_json.c
-        lib/wallet/requests/build_create_wallet_json.h
         lib/wallet/requests/commit_verifier_return.c
-        lib/wallet/requests/commit_verifier_return.h
         lib/wallet/requests/complete_auth_return.c
-        lib/wallet/requests/complete_auth_return.h
-        lib/wallet/sequence_wallet.h
         lib/wallet/sequence_wallet.c
-        lib/utils/uuid.h
         lib/utils/uuid.c
-        lib/utils/globals.h
         lib/utils/globals.c
 )
 
-target_include_directories(sequence-c-sdk PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/lib
-)
-
-# ---- MBed TLS ----
-
-find_package(MbedTLS CONFIG REQUIRED)
-
-get_property(_imported DIRECTORY PROPERTY IMPORTED_TARGETS)
-message(STATUS "Imported targets: ${_imported}")
-
-target_link_libraries(sequence-c-sdk PRIVATE
-        MbedTLS::mbedtls
-        MbedTLS::mbedx509
-        MbedTLS::tfpsacrypto
-)
-
-# ---- CURL ----
-find_package(CURL REQUIRED)
-target_link_libraries(sequence-c-sdk PRIVATE CURL::libcurl)
-
-# ---- cJSON (Homebrew) ----
-set(HOMEBREW_PREFIX "/opt/homebrew" CACHE PATH "Homebrew prefix")
-
-find_path(CJSON_INCLUDE_DIR
-        NAMES cjson/cJSON.h
-        PATHS
-        ${HOMEBREW_PREFIX}/include
-        /usr/local/include
-)
-
-find_library(CJSON_LIBRARY
-        NAMES cjson
-        PATHS
-        ${HOMEBREW_PREFIX}/lib
-        /usr/local/lib
-)
-
-if (NOT CJSON_INCLUDE_DIR OR NOT CJSON_LIBRARY)
-    message(FATAL_ERROR "Could not find cJSON in Homebrew. Try: brew install cjson")
-endif()
-
-target_include_directories(sequence-c-sdk PRIVATE ${CJSON_INCLUDE_DIR})
-target_link_libraries(sequence-c-sdk PRIVATE ${CJSON_LIBRARY})
-
-# ---- libsecp256k1 ----
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
-
-target_link_directories(sequence-c-sdk PRIVATE ${SECP256K1_LIBRARY_DIRS})
-
-target_include_directories(sequence-c-sdk PRIVATE
+target_include_directories(sequence_c_sdk
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
+        $<INSTALL_INTERFACE:include>
         ${SECP256K1_INCLUDE_DIRS}
 )
 
-target_link_libraries(sequence-c-sdk PRIVATE
+target_compile_options(sequence_c_sdk PUBLIC
+        ${SECP256K1_CFLAGS_OTHER}
+)
+
+target_link_libraries(sequence_c_sdk PUBLIC
+        MbedTLS::mbedtls
+        MbedTLS::mbedx509
+        MbedTLS::tfpsacrypto
+        CURL::libcurl
+        cjson
         ${SECP256K1_LIBRARIES}
 )
 
-target_compile_options(sequence-c-sdk PRIVATE
-        ${SECP256K1_CFLAGS_OTHER}
-)
+# ---- Demo ----
+
+add_executable(sequence-demo demo.c)
+target_link_libraries(sequence-demo PRIVATE sequence_c_sdk)
+
+# ---- CLI ----
+
+add_executable(sequence-cli cli.c)
+target_link_libraries(sequence-cli PRIVATE sequence_c_sdk)
+
+# ---- Install ----
+
+install(TARGETS sequence_c_sdk
+        EXPORT sequence-c-sdk-targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+install(TARGETS sequence-demo sequence-cli
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+install(DIRECTORY lib/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sequence
+        FILES_MATCHING PATTERN "*.h")
+
+install(EXPORT sequence-c-sdk-targets
+        FILE sequence-c-sdk-targets.cmake
+        NAMESPACE sequence::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sequence-c-sdk)
