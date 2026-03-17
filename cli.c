@@ -5,6 +5,7 @@
 #include "wallet/sequence_config.h"
 #include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
+#include "storage/secure_storage.h"
 #include "wallet/sequence_connector.h"
 
 // Helper: print string safely
@@ -24,24 +25,30 @@ int main(int argc, char **argv) {
     }
 
     const char *cmd = argv[1];
-    const char *access_key = NULL;
 
-    // Global flags
-    for (int i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "--access_key") == 0 && i + 1 < argc) {
-            access_key = argv[++i];
+    if (strcmp(cmd, "init") != 0) {
+        char *access_key = NULL;
+        secure_store_read_access_key(&access_key);
+        sequence_config_init(access_key);
+    }
+
+    if (strcmp(cmd, "init") == 0) {
+        const char *access_key = NULL;
+
+        // Parse CLI args
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--access_key") == 0 && i + 1 < argc) {
+                access_key = argv[++i];
+            }
         }
-    }
 
-    if (!access_key) {
-        fprintf(stderr, "Error: --access_key is required\n");
-        return 1;
-    }
+        if (!access_key) {
+            fprintf(stderr, "Missing --access_key\n");
+            return 1;
+        }
 
-    sequence_config_init(access_key);
-
-    // Command dispatch
-    if (strcmp(cmd, "get_token_balances") == 0) {
+        secure_store_write_access_key(access_key);
+    } else if (strcmp(cmd, "get_token_balances") == 0) {
         const char *chain_id = NULL;
         const char *contract_address = NULL;
         const char *wallet_address = NULL;
@@ -84,10 +91,12 @@ int main(int argc, char **argv) {
         }
         if (!email || !code) { fprintf(stderr, "Missing --email or --code\n"); return 1; }
 
+        sequence_restore_session();
         sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
         sequence_complete_auth_return_free(res);
 
     } else if (strcmp(cmd, "create_wallet") == 0) {
+        sequence_restore_session();
         sequence_wallet *wallet = sequence_create_wallet();
         print_result(wallet->address);
         sequence_wallet_free(wallet);
@@ -99,6 +108,7 @@ int main(int argc, char **argv) {
         }
         if (!walletType) { fprintf(stderr, "Missing --wallet_type\n"); return 1; }
 
+        sequence_restore_session();
         sequence_wallet *wallet = sequence_use_wallet(walletType);
         print_result(wallet->address);
         sequence_wallet_free(wallet);
@@ -112,6 +122,7 @@ int main(int argc, char **argv) {
         }
         if (!chain_id || !message) { fprintf(stderr, "Missing --chain_id or --message\n"); return 1; }
 
+        sequence_restore_session();
         char *res = sequence_sign_message(chain_id, message);
         print_result(res);
 
@@ -126,6 +137,7 @@ int main(int argc, char **argv) {
         }
         if (!chain_id || !to || !value) { fprintf(stderr, "Missing --chain_id, --to or --value\n"); return 1; }
 
+        sequence_restore_session();
         char *res = sequence_send_transaction(chain_id, to, value);
         print_result(res);
 

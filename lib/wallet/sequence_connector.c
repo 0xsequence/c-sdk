@@ -20,6 +20,7 @@
 #include "requests/send_transaction_return.h"
 #include "requests/sign_message_return.h"
 #include "requests/wallet_return.h"
+#include "storage/secure_storage.h"
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
@@ -77,6 +78,23 @@ static char *sign_and_send(const char *endpoint, const char *payload)
     return body;
 }
 
+int sequence_restore_session() {
+    uint8_t seckey[32];
+    int status = secure_store_read_seckey(seckey);
+
+    if (status != 0) {
+        printf("Failed to read seckey (error=%d)\n", status);
+        return -1;
+    }
+
+    cur_signer = calloc(1, sizeof(*cur_signer));
+    eoa_wallet_from_private_key_bytes(cur_signer, seckey);
+
+    cur_challenge = NULL;
+    secure_store_read_challenge(&cur_challenge);
+    return 1;
+}
+
 int sequence_sign_in_with_email(const char *email) {
     cur_signer = calloc(1, sizeof(*cur_signer)); // sizeof(eoa_wallet_t)
     if (!cur_signer)
@@ -95,8 +113,11 @@ int sequence_sign_in_with_email(const char *email) {
 
     sequence_commit_verifier_response *response = sequence_build_commit_verifier_return(body);
     cur_challenge = strdup(response->challenge);
+    secure_store_write_challenge(response->challenge);
 
     sequence_commit_verifier_response_free(response);
+
+    secure_store_write_seckey(cur_signer->seckey);
 
     return 1;
 }
