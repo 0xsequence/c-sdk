@@ -98,7 +98,6 @@ int eoa_wallet_from_private_key_bytes(eoa_wallet_t *wallet, const uint8_t seckey
         return 0;
     }
 
-    printf("secp256k1 wallet from private key\n");
     return 1;
 }
 

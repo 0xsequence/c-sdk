@@ -55,7 +55,7 @@ static char *sign_and_send(const char *endpoint, const char *payload)
     http_client_add_header(c, "Accept: application/json");
     http_client_add_header(c, auth_header);
 
-    printf(">> %s (with header: %s)\n", payload, auth_header);
+    //printf(">> %s (with header: %s)\n", payload, auth_header);
 
     HttpResponse r = http_client_post_json(c, endpoint, payload, 10000);
 
@@ -70,7 +70,7 @@ static char *sign_and_send(const char *endpoint, const char *payload)
 
     char *body = r.body;
 
-    printf("Response: %s\n", body);
+    //printf("Response: %s\n", body);
 
     //http_response_free(&r);
     http_client_destroy(c);
@@ -113,7 +113,7 @@ int sequence_sign_in_with_email(const char *email) {
 
     sequence_commit_verifier_response *response = sequence_build_commit_verifier_return(body);
     cur_challenge = strdup(response->challenge);
-    secure_store_write_challenge(response->challenge);
+    secure_store_write_challenge(cur_challenge);
 
     sequence_commit_verifier_response_free(response);
 

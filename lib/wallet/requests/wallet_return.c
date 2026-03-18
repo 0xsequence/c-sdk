@@ -43,9 +43,17 @@ void sequence_wallet_response_free(sequence_wallet_response *data)
 {
     if (!data) return;
 
-    free(data->wallet.type);
-    free(data->wallet.address);
-    free(data->wallet.comment);
+    if (data->wallet.type) {
+        free(data->wallet.type);
+    }
+
+    if (data->wallet.address) {
+        free(data->wallet.address);
+    }
+
+    if (data->wallet.comment) {
+        free(data->wallet.comment);
+    }
 
     free(data);
 }

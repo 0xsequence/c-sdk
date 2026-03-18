@@ -57,7 +57,7 @@ cmake --build build
 ./build/sequence-cli confirm_email_sign_in --email andygruening@gmail.com --code 123456
 
 # Use wallet
-./build/sequence-cli use_wallet --wallet_type test
+./build/sequence-cli use_wallet --wallet_type Ethereum_SequenceV3
 
 # Create wallet
 ./build/sequence-cli create_wallet
@@ -66,7 +66,7 @@ cmake --build build
 ./build/sequence-cli sign_message --chain_id 80002 --message test
 
 # Send transaction
-./build/sequence-cli send_transaction --chain_id 137 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
+./build/sequence-cli send_transaction --chain_id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
 ```
 
 #### Homebrew setup
