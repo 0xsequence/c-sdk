@@ -1,6 +1,8 @@
 #include "sequence_wallet.h"
 #include "requests/complete_auth_return.h"
 
+int sequence_restore_session();
+
 int sequence_sign_in_with_email(const char *email);
 
 sequence_complete_auth_return *sequence_confirm_email_sign_in(const char *email, const char *code);

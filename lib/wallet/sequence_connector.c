@@ -20,6 +20,7 @@
 #include "requests/send_transaction_return.h"
 #include "requests/sign_message_return.h"
 #include "requests/wallet_return.h"
+#include "storage/secure_storage.h"
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
@@ -54,7 +55,7 @@ static char *sign_and_send(const char *endpoint, const char *payload)
     http_client_add_header(c, "Accept: application/json");
     http_client_add_header(c, auth_header);
 
-    printf(">> %s (with header: %s)\n", payload, auth_header);
+    //printf(">> %s (with header: %s)\n", payload, auth_header);
 
     HttpResponse r = http_client_post_json(c, endpoint, payload, 10000);
 
@@ -69,12 +70,29 @@ static char *sign_and_send(const char *endpoint, const char *payload)
 
     char *body = r.body;
 
-    printf("Response: %s\n", body);
+    //printf("Response: %s\n", body);
 
     //http_response_free(&r);
     http_client_destroy(c);
 
     return body;
+}
+
+int sequence_restore_session() {
+    uint8_t seckey[32];
+    int status = secure_store_read_seckey(seckey);
+
+    if (status != 0) {
+        printf("Failed to read seckey (error=%d)\n", status);
+        return -1;
+    }
+
+    cur_signer = calloc(1, sizeof(*cur_signer));
+    eoa_wallet_from_private_key_bytes(cur_signer, seckey);
+
+    cur_challenge = NULL;
+    secure_store_read_challenge(&cur_challenge);
+    return 1;
 }
 
 int sequence_sign_in_with_email(const char *email) {
@@ -95,8 +113,11 @@ int sequence_sign_in_with_email(const char *email) {
 
     sequence_commit_verifier_response *response = sequence_build_commit_verifier_return(body);
     cur_challenge = strdup(response->challenge);
+    secure_store_write_challenge(cur_challenge);
 
     sequence_commit_verifier_response_free(response);
+
+    secure_store_write_seckey(cur_signer->seckey);
 
     return 1;
 }

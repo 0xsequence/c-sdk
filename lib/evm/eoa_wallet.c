@@ -66,24 +66,34 @@ size_t eoa_wallet_serialize_pubkey(
 }
 
 int eoa_wallet_from_private_key_bytes(eoa_wallet_t *wallet, const uint8_t seckey32[32]) {
-    if (!wallet || !seckey32) return 0;
+    if (!wallet || !seckey32)
+    {
+        fprintf(stderr, "invalid seckey\n");
+        return 0;
+    }
 
     memset(wallet, 0, sizeof(*wallet));
 
     wallet->ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    if (!wallet->ctx) return 0;
+    if (!wallet->ctx)
+    {
+        fprintf(stderr, "failed to create context\n");
+        return 0;
+    }
 
     // Copy secret key into wallet
     memcpy(wallet->seckey, seckey32, 32);
 
     // Verify secret key is valid for secp256k1
     if (!secp256k1_ec_seckey_verify(wallet->ctx, wallet->seckey)) {
+        fprintf(stderr, "failed to verify seckey\n");
         eoa_wallet_destroy(wallet);
         return 0;
     }
 
     // Derive public key
     if (!secp256k1_ec_pubkey_create(wallet->ctx, &wallet->pubkey, wallet->seckey)) {
+        fprintf(stderr, "failed to create pubkey\n");
         eoa_wallet_destroy(wallet);
         return 0;
     }

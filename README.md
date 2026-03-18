@@ -44,26 +44,29 @@ cmake --build build
 ```
 
 ```shell
+# Init
+./build/sequence-cli init --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak
+
 # Get token balances
-./build/sequence-cli get_token_balances --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --chain_id 137 --contract_address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet_address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include_metadata
+./build/sequence-cli get_token_balances --chain_id 137 --contract_address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet_address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include_metadata
 
 # Sign in with Email
-./build/sequence-cli sign_in_with_email --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --email andygruening@gmail.com
+./build/sequence-cli sign_in_with_email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-cli confirm_email_sign_in --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --email andygruening@gmail.com --code 123456
+./build/sequence-cli confirm_email_sign_in --email andygruening@gmail.com --code 123456
 
 # Use wallet
-./build/sequence-cli use_wallet --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --wallet_type test
+./build/sequence-cli use_wallet --wallet_type Ethereum_SequenceV3
 
 # Create wallet
-./build/sequence-cli create_wallet --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak
+./build/sequence-cli create_wallet
 
 # Sign message
-./build/sequence-cli sign_message --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --chain_id 137 --message test
+./build/sequence-cli sign_message --chain_id 80002 --message test
 
 # Send transaction
-./build/sequence-cli send_transaction --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak --chain_id 137 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
+./build/sequence-cli send_transaction --chain_id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
 ```
 
 #### Homebrew setup
@@ -76,5 +79,18 @@ brew untap 0xsequence/c-sdk
 brew tap 0xsequence/c-sdk https://github.com/0xsequence/c-sdk/
 
 # Install tap
-brew install 0xsequence/c-sdk/sequence
+brew install 0xsequence/c-sdk/wallet
+```
+
+#### Homebrew installation
+
+```shell
+# Install
+brew install 0xsequence/c-sdk/wallet
+
+# Brew lists this package as 'wallet'
+brew list -v wallet
+
+# Uninstall
+brew install 0xsequence/c-sdk/wallet
 ```

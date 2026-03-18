@@ -1,7 +1,7 @@
-class SequenceCli < Formula
+class Wallet < Formula
   desc "Sequence C SDK"
   homepage "https://github.com/0xsequence/c-sdk"
-  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.0.tar.gz"
+  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.1.tar.gz"
   sha256 "SHA256_OF_TARBALL"
   license "MIT"
 
@@ -10,7 +10,7 @@ class SequenceCli < Formula
   depends_on "mbedtls"
   depends_on "curl"
   depends_on "cjson"
-  depends_on "libsecp256k1"
+  depends_on "secp256k1"
 
   def install
     system "cmake", ".", "-DCMAKE_INSTALL_PREFIX=#{prefix}", *std_cmake_args

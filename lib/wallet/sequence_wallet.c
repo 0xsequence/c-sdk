@@ -23,7 +23,9 @@ sequence_wallet *sequence_wallet_from_response(
 void sequence_wallet_free(sequence_wallet *w) {
     if (!w) return;
 
-    free(w->address);
+    if (w->address) {
+        free(w->address);
+    }
 
-    memset(w, 0, sizeof(*w));
+    free(w);
 }

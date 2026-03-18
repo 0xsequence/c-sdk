@@ -23,6 +23,7 @@ add_library(sequence_c_sdk
         lib/indexer/get_token_balances.c
         lib/chains/chain_bindings.c
         lib/storage/storage_handler.c
+        lib/storage/secure_storage.c
         lib/indexer/requests/get_token_balances_args.c
         lib/indexer/requests/get_token_balances_return.c
         lib/evm/keccak256.c
@@ -46,6 +47,8 @@ add_library(sequence_c_sdk
         lib/wallet/sequence_wallet.c
         lib/utils/uuid.c
         lib/utils/globals.c
+        lib/storage/secure_storage.c
+        lib/storage/secure_storage.h
 )
 
 target_include_directories(sequence_c_sdk
@@ -67,6 +70,14 @@ target_link_libraries(sequence_c_sdk PUBLIC
         cjson
         ${SECP256K1_LIBRARIES}
 )
+
+# macOS frameworks
+if(APPLE)
+    target_link_libraries(sequence_c_sdk PUBLIC
+            "-framework Security"
+            "-framework CoreFoundation"
+    )
+endif()
 
 # ---- Demo ----
 
