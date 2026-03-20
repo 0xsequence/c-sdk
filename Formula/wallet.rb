@@ -1,7 +1,7 @@
 class Wallet < Formula
   desc "Sequence C SDK"
   homepage "https://github.com/0xsequence/c-sdk"
-  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.2.tar.gz"
+  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.1.tar.gz"
   sha256 "d891458dba853c3fb52d5170bb07453556adb1583df1587fcd900b46e3f729c2"
   license "MIT"
 
