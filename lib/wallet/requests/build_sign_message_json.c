@@ -2,7 +2,7 @@
 
 #include <cjson/cJSON.h>
 
-char *build_sign_message_json(const char *network, const char *message)
+char *build_sign_message_json(const char *wallet, const char *network, const char *message)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON *params = cJSON_CreateObject();
@@ -15,6 +15,7 @@ char *build_sign_message_json(const char *network, const char *message)
 
     cJSON_AddItemToObject(root, "params", params);
 
+    cJSON_AddStringToObject(params, "wallet", wallet);
     cJSON_AddStringToObject(params, "network", network);
     cJSON_AddStringToObject(params, "message", message);
 

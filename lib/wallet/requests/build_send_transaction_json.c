@@ -2,7 +2,7 @@
 
 #include <cjson/cJSON.h>
 
-char *build_send_transaction_json(const char *network, const char *to, const char *value)
+char *build_send_transaction_json(const char *wallet, const char *network, const char *to, const char *value)
 {
     cJSON *root = cJSON_CreateObject();
     cJSON *params = cJSON_CreateObject();
@@ -14,8 +14,9 @@ char *build_send_transaction_json(const char *network, const char *to, const cha
     }
 
     cJSON_AddItemToObject(root, "params", params);
-
+    
     cJSON_AddStringToObject(params, "mode", "Relayer");
+    cJSON_AddStringToObject(params, "wallet", wallet);
     cJSON_AddStringToObject(params, "network", network);
     cJSON_AddStringToObject(params, "to", to);
     cJSON_AddStringToObject(params, "value", value);

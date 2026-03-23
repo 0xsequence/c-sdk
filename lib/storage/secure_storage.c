@@ -148,55 +148,39 @@ static OSStatus keychain_read(
 /* Public API                                        */
 /* -------------------------------------------------- */
 
-int secure_store_write_access_key(const char *access_key)
+int secure_store_write_string(const char *key, const char *value)
 {
+    if (!key || !value)
+        return errSecParam;
+
     return keychain_write(
-        "access_key",
-        access_key,
-        strlen(access_key));
+        key,
+        value,
+        strlen(value));
 }
 
-int secure_store_read_access_key(char **access_key)
+int secure_store_read_string(const char *key, char **value)
 {
+    if (!key || !value)
+        return errSecParam;
+
     uint8_t *data = NULL;
     size_t len = 0;
 
     OSStatus status =
-        keychain_read("access_key", &data, &len);
+        keychain_read(key, &data, &len);
 
     if (status != errSecSuccess)
         return status;
 
-    *access_key = malloc(len + 1);
-    memcpy(*access_key, data, len);
-    (*access_key)[len] = '\0';
+    *value = malloc(len + 1);
+    if (!*value) {
+        free(data);
+        return errSecAllocate;
+    }
 
-    free(data);
-    return errSecSuccess;
-}
-
-int secure_store_write_challenge(const char *challenge)
-{
-    return keychain_write(
-        "challenge",
-        challenge,
-        strlen(challenge));
-}
-
-int secure_store_read_challenge(char **challenge)
-{
-    uint8_t *data = NULL;
-    size_t len = 0;
-
-    OSStatus status =
-        keychain_read("challenge", &data, &len);
-
-    if (status != errSecSuccess)
-        return status;
-
-    *challenge = malloc(len + 1);
-    memcpy(*challenge, data, len);
-    (*challenge)[len] = '\0';
+    memcpy(*value, data, len);
+    (*value)[len] = '\0';
 
     free(data);
     return errSecSuccess;
