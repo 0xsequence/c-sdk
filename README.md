@@ -45,7 +45,7 @@ cmake --build build
 
 ```shell
 # Init
-./build/sequence-cli init --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak
+./build/sequence-cli init --access_key AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE
 
 # Get token balances
 ./build/sequence-cli get_token_balances --chain_id 137 --contract_address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet_address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include_metadata
