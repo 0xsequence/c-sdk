@@ -40,7 +40,7 @@ static char* sign_and_send(const char* endpoint, const char* payload)
 
     const char* tmpl = "POST /rpc/Wallet{0}\nnonce: {1}\n\n{2}";
     const char* args[] = {endpoint, nonce, payload};
-    const char* data_to_sign = format_placeholders(tmpl, args, 2);
+    const char* data_to_sign = format_placeholders(tmpl, args, 3);
 
     uint8_t hashed_to_sign[32];
     keccak256((const uint8_t*)data_to_sign, strlen(data_to_sign), hashed_to_sign);
@@ -57,7 +57,7 @@ static char* sign_and_send(const char* endpoint, const char* payload)
     const char* header_template =
         "Authorization: Ethereum_Secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
     const char* header_args[] = {"@1:test", address, nonce, sig};
-    const char* auth_header = format_placeholders(header_template, header_args, 3);
+    const char* auth_header = format_placeholders(header_template, header_args, 4);
 
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Origin: http://localhost:3000");
@@ -183,6 +183,8 @@ sequence_wallet* sequence_use_wallet(const char* walletType)
         response->wallet.address,
         cur_signer->seckey);
 
+    secure_store_write_string("sequence_wallet_address", sequence_wallet->address);
+
     sequence_wallet_response_free(response);
 
     return sequence_wallet;
@@ -205,6 +207,8 @@ sequence_wallet* sequence_create_wallet()
         response->wallet.address,
         cur_signer->seckey);
 
+    secure_store_write_string("sequence_wallet_address", sequence_wallet->address);
+
     sequence_wallet_response_free(response);
 
     return sequence_wallet;
@@ -218,7 +222,9 @@ char* sequence_sign_message(const char* chain_id, const char* message)
         return NULL;
     }
 
-    const char* address = eoa_wallet_get_address(cur_signer->ctx, &cur_signer->pubkey);
+    char *address = NULL;
+    secure_store_read_string("sequence_wallet_address", &address);
+
     const char* network = sequence_get_chain_name(chain_id);
 
     const char* json = build_sign_message_json(address, network, message);
@@ -240,7 +246,9 @@ char* sequence_send_transaction(const char* chain_id, const char* to, const char
         return NULL;
     }
 
-    const char* address = eoa_wallet_get_address(cur_signer->ctx, &cur_signer->pubkey);
+    char *address = NULL;
+    secure_store_read_string("sequence_wallet_address", &address);
+
     const char* network = sequence_get_chain_name(chain_id);
 
     const char* json = build_send_transaction_json(address, network, to, value);
