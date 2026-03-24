@@ -1,8 +1,8 @@
 class Wallet < Formula
   desc "Sequence C SDK"
   homepage "https://github.com/0xsequence/c-sdk"
-  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.2.1.tar.gz"
-  sha256 "d891458dba853c3fb52d5170bb07453556adb1583df1587fcd900b46e3f729c2"
+  url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.3.0.tar.gz"
+  sha256 "e4949620a97b2952ec774280df2344c5a047d4e96a19c8019f96e9a0c365996c"
   license "MIT"
 
   depends_on "cmake" => :build
