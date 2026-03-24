@@ -45,7 +45,7 @@ cmake --build build
 
 ```shell
 # Init
-./build/sequence-cli init --access_key AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak
+./build/sequence-cli init --access_key AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE
 
 # Get token balances
 ./build/sequence-cli get_token_balances --chain_id 137 --contract_address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet_address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include_metadata
@@ -69,28 +69,21 @@ cmake --build build
 ./build/sequence-cli send_transaction --chain_id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
 ```
 
-#### Homebrew setup
+#### Homebrew version release
+
+1. Create a tag and version release on GitHub
+2. Reference the .tar.gz file `url` from the release inside the `Formula/wallet.rb` file
+3. Compute the file hash `curl -L <url.tar.gz> | shasum -a 256`
+4. Replace the sha256 value inside `wallet.rb` with the hash from the latest release
+5. Create a PR and merge it into `master`
+
+#### Homebrew installation
 
 ```shell
 # Remove tap if needed
 brew untap 0xsequence/c-sdk
 
-# Create tap
+# Create tap, then install
 brew tap 0xsequence/c-sdk https://github.com/0xsequence/c-sdk/
-
-# Install tap
-brew install 0xsequence/c-sdk/wallet
-```
-
-#### Homebrew installation
-
-```shell
-# Install
-brew install 0xsequence/c-sdk/wallet
-
-# Brew lists this package as 'wallet'
-brew list -v wallet
-
-# Uninstall
 brew install 0xsequence/c-sdk/wallet
 ```

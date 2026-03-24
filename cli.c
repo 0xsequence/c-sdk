@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 
     if (strcmp(cmd, "init") != 0) {
         char *access_key = NULL;
-        secure_store_read_access_key(&access_key);
+        secure_store_read_string("access_key", &access_key);
         sequence_config_init(access_key);
     }
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        secure_store_write_access_key(access_key);
+        secure_store_write_string("access_key", access_key);
 
         printf("The access key has been successfully initialized.\n");
         print_first_steps();
