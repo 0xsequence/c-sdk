@@ -42,6 +42,59 @@ void print_use_cases() {
     print_use_case("Send Transaction", "sequence-wallet send_transaction --chain_id <chain_id> --to <address> --value <value>");
 }
 
+void print_help(const char *prog) {
+    printf(
+        "Sequence Wallet CLI\n"
+       "\n"
+       "Usage:\n"
+       "  %s <command> [options]\n"
+       "\n"
+       "Commands:\n"
+       "  init\n"
+       "      Initialize project\n"
+       "      --access-key <access-key>\n"
+       "\n"
+       "  get-token-balances\n"
+       "      Fetch token balances\n"
+       "      --chain-id <chain-id>\n"
+       "      --contract-address <address>\n"
+       "      --wallet-address <address>\n"
+       "      --include-metadata\n"
+       "\n"
+       "  sign-in-with-email\n"
+       "      Start email sign-in\n"
+       "      --email <email>\n"
+       "\n"
+       "  confirm-email-sign-in\n"
+       "      Confirm email sign-in\n"
+       "      --email <email>\n"
+       "      --code <code>\n"
+       "      --manual\n"
+       "\n"
+       "  use-wallet\n"
+       "      Select wallet type\n"
+       "      --wallet-type <wallet-type>\n"
+       "\n"
+       "  create-wallet\n"
+       "      Create a new wallet\n"
+       "\n"
+       "  sign-message\n"
+       "      Sign a message\n"
+       "      --chain-id <chain-id>\n"
+       "      --message <message>\n"
+       "\n"
+       "  send-transaction\n"
+       "      Send a transaction\n"
+       "      --chain-id <chain-id>\n"
+       "      --to <address>\n"
+       "      --value <value-wei>\n"
+       "\n"
+       "Options:\n"
+       "  -h, --help     Show this help message\n",
+        prog
+    );
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         printf("Usage: sequence <command> [options]\n");
@@ -50,13 +103,18 @@ int main(int argc, char **argv) {
 
     const char *cmd = argv[1];
 
-    if (strcmp(cmd, "init") != 0) {
+    if (strcmp(cmd, "init") != 0 && strcmp(argv[1], "--help") != 0 && strcmp(argv[1], "-h") != 0) {
         char *access_key = NULL;
         secure_store_read_string("access-key", &access_key);
         sequence_config_init(access_key);
     }
 
-    if (strcmp(cmd, "init") == 0) {
+    if (strcmp(argv[1], "--help") == 0 ||
+        strcmp(argv[1], "-h") == 0) {
+
+        print_help("sequence-wallet");
+
+    } else if (strcmp(cmd, "init") == 0) {
         print_header("Initialization");
 
         const char *access_key = NULL;
