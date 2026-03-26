@@ -32,14 +32,14 @@ void print_use_case(char *title, char *command) {
 
 void print_first_steps() {
     printf("\nLet's get things rolling!\n");
-    print_use_case("Get Token Balances", "sequence-cli get_token_balances --chain_id <chain_id> --contract_address <address> --wallet_address <address> --include_metadata");
-    print_use_case("Sign In with Email", "sequence-cli sign_in_with_email --email <email>");
+    print_use_case("Get Token Balances", "sequence-wallet get_token_balances --chain_id <chain_id> --contract_address <address> --wallet_address <address> --include_metadata");
+    print_use_case("Sign In with Email", "sequence-wallet sign_in_with_email --email <email>");
 }
 
 void print_use_cases() {
     printf("\nLet’s try out some features!\n");
-    print_use_case("Sign Message", "sequence-cli sign_message --chain_id <chain_id> --message <message>");
-    print_use_case("Send Transaction", "sequence-cli send_transaction --chain_id <chain_id> --to <address> --value <value>");
+    print_use_case("Sign Message", "sequence-wallet sign_message --chain_id <chain_id> --message <message>");
+    print_use_case("Send Transaction", "sequence-wallet send_transaction --chain_id <chain_id> --to <address> --value <value>");
 }
 
 int main(int argc, char **argv) {
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
         if (sequence_sign_in_with_email(email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
-            print_use_case("Confirm Email Sign In", "sequence-cli confirm_email_sign_in --email <email> --code <code>");
+            print_use_case("Confirm Email Sign In", "sequence-wallet confirm_email_sign_in --email <email> --code <code>");
         }
     } else if (strcmp(cmd, "confirm-email-sign-in") == 0) {
         print_header("Confirming Email Sign In");
@@ -134,40 +134,60 @@ int main(int argc, char **argv) {
         sequence_restore_session();
         sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
 
-        sequence_wallet *wallet;
-        wallet = NULL;
+        sequence_wallet *wallet = NULL;
 
-        if (manual == false)
-        {
-            if (res->wallet_count <= 0)
-            {
+        if (!manual) {
+
+            /* No wallets → create one */
+            if (res->wallet_count == 0) {
                 wallet = sequence_create_wallet();
             }
-            else
-            {
-                wallet = sequence_use_wallet("Ethereum_SequenceV3");
+            else if (res->wallets) {
+
+                /* Prefer Ethereum_SequenceV3 if available */
+                for (size_t i = 0; i < res->wallet_count; ++i) {
+                    if (strcmp(res->wallets[i].type, "Ethereum_SequenceV3") == 0) {
+                        wallet = sequence_use_wallet("Ethereum_SequenceV3");
+                        break;
+                    }
+                }
+
+                /* Fallback to first wallet */
+                if (!wallet) {
+                    wallet = sequence_use_wallet(res->wallets[0].type);
+                }
             }
 
-            printf("Sequence Wallet Address: %s\n", wallet->address);
-            print_use_cases();
-        }
-        else
-        {
-            if (res->wallet_count <= 0) {
-                printf("No wallets available, please create a new wallet.");
-                print_use_case("Create Wallet", "sequence-cli create-wallet");
+            if (wallet) {
+                printf("Sequence Wallet Address: %s\n", wallet->address);
+                print_use_cases();
             } else {
-                printf("Please select one of the existing wallet types:\n");
+                fprintf(stderr, "Failed to initialize wallet\n");
             }
+
+        } else {
+
+            if (res->wallet_count == 0) {
+                printf("No wallets available, please create a new wallet.\n");
+                print_use_case("Create Wallet", "sequence-wallet create-wallet");
+
+                sequence_complete_auth_return_free(res);
+                return 0;
+            }
+
+            printf("Please select one of the existing wallet types:\n");
 
             if (res->wallets) {
-                for (size_t i = 0; i < res->wallet_count; i++) {
-                    printf("Wallet Type %ld: %s\n", i, res->wallets[i].type);
+                for (size_t i = 0; i < res->wallet_count; ++i) {
+                    printf("Wallet Type %zu: %s\n", i, res->wallets[i].type);
                 }
             }
 
             printf("\nUse the following command to select it:\n");
-            print_use_case("Use Wallet", "sequence-cli use-wallet --wallet-type <Wallet Type>");
+            print_use_case(
+                "Use Wallet",
+                "sequence-wallet use-wallet --wallet-type <Wallet Type>"
+            );
         }
 
         sequence_complete_auth_return_free(res);

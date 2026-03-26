@@ -64,7 +64,7 @@ static char* sign_and_send(const char* endpoint, const char* payload)
     http_client_add_header(c, "Accept: application/json");
     http_client_add_header(c, auth_header);
 
-    printf(">> %s (with header: %s)\n", payload, auth_header);
+    printf(">> Request\n%s\n%s\n\n", payload, auth_header);
 
     HttpResponse r = http_client_post_json(c, endpoint, payload, 10000);
 
@@ -78,11 +78,11 @@ static char* sign_and_send(const char* endpoint, const char* payload)
         return NULL;
     }
 
-    char* body = r.body;
+    char* body = strdup(r.body);
 
-    printf("Response: %s\n", body);
+    printf("<< Response\n%s\n\n", body);
 
-    //http_response_free(&r);
+    http_response_free(&r);
     http_client_destroy(c);
 
     return body;
