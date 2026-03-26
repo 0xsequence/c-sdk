@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <xpc/xpc.h>
+
 #include "wallet/sequence_config.h"
 #include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
@@ -120,32 +122,55 @@ int main(int argc, char **argv) {
 
         const char *email = NULL;
         const char *code = NULL;
+        bool manual = false;
+
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
             else if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
+            else if (strcmp(argv[i], "--manual") == 0) manual = true;
         }
         if (!email || !code) { fprintf(stderr, "Missing --email or --code\n"); return 1; }
 
         sequence_restore_session();
         sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
 
-        if (res->wallet_count <= 0) {
-            printf("No wallets available, please create a new wallet.");
-            print_use_case("Create Wallet", "sequence-cli create-wallet");
-        } else {
-            printf("Please select one of the existing wallet types:\n");
-        }
+        sequence_wallet *wallet;
+        wallet = NULL;
 
-        if (res->wallets) {
-            for (size_t i = 0; i < res->wallet_count; i++) {
-                printf("Wallet Type %ld: %s\n", i, res->wallets[i].type);
+        if (manual == false)
+        {
+            if (res->wallet_count <= 0)
+            {
+                wallet = sequence_create_wallet();
             }
+            else
+            {
+                wallet = sequence_use_wallet("Ethereum_SequenceV3");
+            }
+
+            printf("Sequence Wallet Address: %s\n", wallet->address);
+            print_use_cases();
+        }
+        else
+        {
+            if (res->wallet_count <= 0) {
+                printf("No wallets available, please create a new wallet.");
+                print_use_case("Create Wallet", "sequence-cli create-wallet");
+            } else {
+                printf("Please select one of the existing wallet types:\n");
+            }
+
+            if (res->wallets) {
+                for (size_t i = 0; i < res->wallet_count; i++) {
+                    printf("Wallet Type %ld: %s\n", i, res->wallets[i].type);
+                }
+            }
+
+            printf("\nUse the following command to select it:\n");
+            print_use_case("Use Wallet", "sequence-cli use-wallet --wallet-type <Wallet Type>");
         }
 
         sequence_complete_auth_return_free(res);
-
-        printf("\nUse the following command to select it:\n");
-        print_use_case("Use Wallet", "sequence-cli use-wallet --wallet-type <Wallet Type>");
 
     } else if (strcmp(cmd, "create-wallet") == 0) {
         print_header("Create Wallet");
