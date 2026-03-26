@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 
     if (strcmp(cmd, "init") != 0) {
         char *access_key = NULL;
-        secure_store_read_string("access_key", &access_key);
+        secure_store_read_string("access-key", &access_key);
         sequence_config_init(access_key);
     }
 
@@ -61,22 +61,22 @@ int main(int argc, char **argv) {
 
         // Parse CLI args
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--access_key") == 0 && i + 1 < argc) {
+            if (strcmp(argv[i], "--access-key") == 0 && i + 1 < argc) {
                 access_key = argv[++i];
             }
         }
 
         if (!access_key) {
-            fprintf(stderr, "Missing --access_key\n");
+            fprintf(stderr, "Missing --access-key\n");
             return 1;
         }
 
-        secure_store_write_string("access_key", access_key);
+        secure_store_write_string("access-key", access_key);
 
         printf("The access key has been successfully initialized.\n");
         print_first_steps();
 
-    } else if (strcmp(cmd, "get_token_balances") == 0) {
+    } else if (strcmp(cmd, "get-token-balances") == 0) {
         print_header("Get Token Balances");
 
         const char *chain_id = NULL;
@@ -85,14 +85,14 @@ int main(int argc, char **argv) {
         bool include_metadata = false;
 
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain_id") == 0 && i + 1 < argc) chain_id = argv[++i];
-            else if (strcmp(argv[i], "--contract_address") == 0 && i + 1 < argc) contract_address = argv[++i];
-            else if (strcmp(argv[i], "--wallet_address") == 0 && i + 1 < argc) wallet_address = argv[++i];
-            else if (strcmp(argv[i], "--include_metadata") == 0) include_metadata = true;
+            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
+            else if (strcmp(argv[i], "--contract-address") == 0 && i + 1 < argc) contract_address = argv[++i];
+            else if (strcmp(argv[i], "--wallet-address") == 0 && i + 1 < argc) wallet_address = argv[++i];
+            else if (strcmp(argv[i], "--include-metadata") == 0) include_metadata = true;
         }
 
         if (!chain_id || !contract_address || !wallet_address) {
-            fprintf(stderr, "Missing required args for get_token_balances\n");
+            fprintf(stderr, "Missing required args for get-token-balances\n");
             return 1;
         }
 
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
         log_sequence_get_token_balances_return(res);
         free_sequence_token_balances_return(res);
 
-    } else if (strcmp(cmd, "sign_in_with_email") == 0) {
+    } else if (strcmp(cmd, "sign-in-with-email") == 0) {
         print_header("Sign In with Email");
 
         const char *email = NULL;
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
             print_use_case("Confirm Email Sign In", "sequence-cli confirm_email_sign_in --email <email> --code <code>");
         }
-    } else if (strcmp(cmd, "confirm_email_sign_in") == 0) {
+    } else if (strcmp(cmd, "confirm-email-sign-in") == 0) {
         print_header("Confirming Email Sign In");
 
         const char *email = NULL;
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
 
         if (res->wallet_count <= 0) {
             printf("No wallets available, please create a new wallet.");
-            print_use_case("Create Wallet", "sequence-cli create_wallet");
+            print_use_case("Create Wallet", "sequence-cli create-wallet");
         } else {
             printf("Please select one of the existing wallet types:\n");
         }
@@ -145,9 +145,9 @@ int main(int argc, char **argv) {
         sequence_complete_auth_return_free(res);
 
         printf("\nUse the following command to select it:\n");
-        print_use_case("Use Wallet", "sequence-cli use_wallet --wallet_type <Wallet Type>");
+        print_use_case("Use Wallet", "sequence-cli use-wallet --wallet-type <Wallet Type>");
 
-    } else if (strcmp(cmd, "create_wallet") == 0) {
+    } else if (strcmp(cmd, "create-wallet") == 0) {
         print_header("Create Wallet");
 
         sequence_restore_session();
@@ -156,14 +156,14 @@ int main(int argc, char **argv) {
 
         print_use_cases();
 
-    } else if (strcmp(cmd, "use_wallet") == 0) {
+    } else if (strcmp(cmd, "use-wallet") == 0) {
         print_header("Use Wallet");
 
         const char *walletType = NULL;
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--wallet_type") == 0 && i + 1 < argc) walletType = argv[++i];
+            if (strcmp(argv[i], "--wallet-type") == 0 && i + 1 < argc) walletType = argv[++i];
         }
-        if (!walletType) { fprintf(stderr, "Missing --wallet_type\n"); return 1; }
+        if (!walletType) { fprintf(stderr, "Missing --wallet-type\n"); return 1; }
 
         sequence_restore_session();
         const sequence_wallet *wallet = sequence_use_wallet(walletType);
@@ -171,33 +171,33 @@ int main(int argc, char **argv) {
 
         print_use_cases();
 
-    } else if (strcmp(cmd, "sign_message") == 0) {
+    } else if (strcmp(cmd, "sign-message") == 0) {
         print_header("Sign Message");
 
         const char *chain_id = NULL;
         const char *message = NULL;
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain_id") == 0 && i + 1 < argc) chain_id = argv[++i];
+            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
             else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
         }
-        if (!chain_id || !message) { fprintf(stderr, "Missing --chain_id or --message\n"); return 1; }
+        if (!chain_id || !message) { fprintf(stderr, "Missing --chain-id or --message\n"); return 1; }
 
         sequence_restore_session();
         char *signature = sequence_sign_message(chain_id, message);
         printf("Signature: %s\n", signature);
 
-    } else if (strcmp(cmd, "send_transaction") == 0) {
+    } else if (strcmp(cmd, "send-transaction") == 0) {
         print_header("Send Transaction");
 
         const char *chain_id = NULL;
         const char *to = NULL;
         const char *value = NULL;
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain_id") == 0 && i + 1 < argc) chain_id = argv[++i];
+            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
             else if (strcmp(argv[i], "--to") == 0 && i + 1 < argc) to = argv[++i];
             else if (strcmp(argv[i], "--value") == 0 && i + 1 < argc) value = argv[++i];
         }
-        if (!chain_id || !to || !value) { fprintf(stderr, "Missing --chain_id, --to or --value\n"); return 1; }
+        if (!chain_id || !to || !value) { fprintf(stderr, "Missing --chain-id, --to or --value\n"); return 1; }
 
         sequence_restore_session();
         char *txHash = sequence_send_transaction(chain_id, to, value);
