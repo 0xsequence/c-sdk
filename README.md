@@ -54,7 +54,7 @@ cmake --build build
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456
+./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456 --wallet-type Ethereum_SequenceV3
 
 # Use wallet
 ./build/sequence-wallet use-wallet --wallet-type Ethereum_SequenceV3

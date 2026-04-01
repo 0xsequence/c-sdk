@@ -166,7 +166,7 @@ sequence_complete_auth_return* sequence_confirm_email_sign_in(const char* email,
     return response;
 }
 
-sequence_wallet* sequence_use_wallet(const char* walletType)
+sequence_wallet* sequence_use_wallet(const char* wallet_type)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
@@ -174,7 +174,7 @@ sequence_wallet* sequence_use_wallet(const char* walletType)
         return NULL;
     }
 
-    const char* use_wallet_json = sequence_build_use_wallet_json(walletType);
+    const char* use_wallet_json = sequence_build_use_wallet_json(wallet_type);
     const char* body = sign_and_send("/UseWallet", use_wallet_json);
 
     sequence_wallet_response* response = sequence_build_wallet_return(body);
@@ -190,7 +190,7 @@ sequence_wallet* sequence_use_wallet(const char* walletType)
     return sequence_wallet;
 }
 
-sequence_wallet* sequence_create_wallet()
+sequence_wallet* sequence_create_wallet(const char *wallet_type)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
@@ -198,7 +198,7 @@ sequence_wallet* sequence_create_wallet()
         return NULL;
     }
 
-    const char* create_wallet_json = sequence_build_create_wallet_json("Ethereum_SequenceV3");
+    const char* create_wallet_json = sequence_build_create_wallet_json(wallet_type);
     const char* body = sign_and_send("/CreateWallet", create_wallet_json);
 
     sequence_wallet_response* response = sequence_build_wallet_return(body);

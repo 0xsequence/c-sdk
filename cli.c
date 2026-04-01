@@ -69,7 +69,7 @@ void print_help(const char *prog) {
        "      Confirm email sign-in\n"
        "      --email <email>\n"
        "      --code <code>\n"
-       "      --manual\n"
+       "      --wallet_type <Ethereum_SequenceV3 | Ethereum_EOA> (optional)\n"
        "\n"
        "  use-wallet\n"
        "      Select wallet type\n"
@@ -180,12 +180,12 @@ int main(int argc, char **argv) {
 
         const char *email = NULL;
         const char *code = NULL;
-        bool manual = false;
+        const char *wallet_type = NULL;
 
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
             else if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
-            else if (strcmp(argv[i], "--manual") == 0) manual = true;
+            else if (strcmp(argv[i], "--wallet-type") == 0) wallet_type = argv[++i];
         }
         if (!email || !code) { fprintf(stderr, "Missing --email or --code\n"); return 1; }
 
@@ -194,26 +194,25 @@ int main(int argc, char **argv) {
 
         sequence_wallet *wallet = NULL;
 
-        if (!manual) {
-
+        if (wallet_type) {
             /* No wallets → create one */
             if (res->wallet_count == 0) {
-                wallet = sequence_create_wallet();
+                wallet = sequence_create_wallet(wallet_type);
             }
             else if (res->wallets) {
 
                 /* Prefer Ethereum_SequenceV3 if available */
                 for (size_t i = 0; i < res->wallet_count; ++i) {
-                    if (strcmp(res->wallets[i].type, "Ethereum_SequenceV3") == 0) {
-                        wallet = sequence_use_wallet("Ethereum_SequenceV3");
+                    if (strcmp(res->wallets[i].type, wallet_type) == 0) {
+                        wallet = sequence_use_wallet(wallet_type);
                         break;
                     }
                 }
+            }
 
-                /* Fallback to first wallet */
-                if (!wallet) {
-                    wallet = sequence_use_wallet(res->wallets[0].type);
-                }
+            /* If no wallet was selected, fallback to create the specified wallet type */
+            if (!wallet) {
+                wallet = sequence_create_wallet(wallet_type);
             }
 
             if (wallet) {
@@ -254,7 +253,7 @@ int main(int argc, char **argv) {
         print_header("Create Wallet");
 
         sequence_restore_session();
-        const sequence_wallet *wallet = sequence_create_wallet();
+        const sequence_wallet *wallet = sequence_create_wallet("Ethereum_SequenceV3");
         printf("Sequence Wallet Address: %s\n", wallet->address);
 
         print_use_cases();
