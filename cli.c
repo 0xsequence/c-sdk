@@ -77,6 +77,7 @@ void print_help(const char *prog) {
        "\n"
        "  create-wallet\n"
        "      Create a new wallet\n"
+       "      --wallet-type <wallet-type> (optional)\n"
        "\n"
        "  sign-message\n"
        "      Sign a message\n"
