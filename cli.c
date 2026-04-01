@@ -159,6 +159,11 @@ int main(int argc, char **argv) {
         SequenceGetTokenBalancesReturn *res =
             sequence_get_token_balances(chain_id, contract_address, wallet_address, include_metadata);
 
+        if (!res) {
+            fprintf(stderr, "sequence_get_token_balances failed\n");
+            return 1;
+        }
+
         log_sequence_get_token_balances_return(res);
         free_sequence_token_balances_return(res);
 
@@ -169,7 +174,10 @@ int main(int argc, char **argv) {
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
         }
-        if (!email) { fprintf(stderr, "Missing --email\n"); return 1; }
+        if (!email) {
+            fprintf(stderr, "Missing --email\n");
+            return 1;
+        }
 
         if (sequence_sign_in_with_email(email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
@@ -187,10 +195,18 @@ int main(int argc, char **argv) {
             else if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
             else if (strcmp(argv[i], "--wallet-type") == 0) wallet_type = argv[++i];
         }
-        if (!email || !code) { fprintf(stderr, "Missing --email or --code\n"); return 1; }
+        if (!email || !code) {
+            fprintf(stderr, "Missing --email or --code\n");
+            return 1;
+        }
 
         sequence_restore_session();
         sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
+
+        if (!res) {
+            fprintf(stderr, "sequence_confirm_email_sign_in failed\n");
+            return 1;
+        }
 
         sequence_wallet *wallet = NULL;
 
@@ -253,7 +269,24 @@ int main(int argc, char **argv) {
         print_header("Create Wallet");
 
         sequence_restore_session();
-        const sequence_wallet *wallet = sequence_create_wallet("Ethereum_SequenceV3");
+
+        const char *walletType = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--wallet-type") == 0 && i + 1 < argc) walletType = argv[++i];
+        }
+
+        // Use sequence v3 wallet type by default
+        if (!walletType) {
+            walletType = "Ethereum_SequenceV3";
+        }
+
+        const sequence_wallet *wallet = sequence_create_wallet(walletType);
+
+        if (!wallet) {
+            fprintf(stderr, "Failed to create wallet of type '%s'\n", walletType);
+            return 1;
+        }
+
         printf("Sequence Wallet Address: %s\n", wallet->address);
 
         print_use_cases();
@@ -269,6 +302,12 @@ int main(int argc, char **argv) {
 
         sequence_restore_session();
         const sequence_wallet *wallet = sequence_use_wallet(walletType);
+
+        if (!wallet) {
+            fprintf(stderr, "Failed to use wallet of type '%s'\n", walletType);
+            return 1;
+        }
+
         printf("Sequence Wallet Address: %s\n", wallet->address);
 
         print_use_cases();
@@ -282,7 +321,11 @@ int main(int argc, char **argv) {
             if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
             else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
         }
-        if (!chain_id || !message) { fprintf(stderr, "Missing --chain-id or --message\n"); return 1; }
+
+        if (!chain_id || !message) {
+            fprintf(stderr, "Missing --chain-id or --message\n");
+            return 1;
+        }
 
         sequence_restore_session();
         char *signature = sequence_sign_message(chain_id, message);
@@ -299,7 +342,10 @@ int main(int argc, char **argv) {
             else if (strcmp(argv[i], "--to") == 0 && i + 1 < argc) to = argv[++i];
             else if (strcmp(argv[i], "--value") == 0 && i + 1 < argc) value = argv[++i];
         }
-        if (!chain_id || !to || !value) { fprintf(stderr, "Missing --chain-id, --to or --value\n"); return 1; }
+        if (!chain_id || !to || !value) {
+            fprintf(stderr, "Missing --chain-id, --to or --value\n");
+            return 1;
+        }
 
         sequence_restore_session();
         char *txHash = sequence_send_transaction(chain_id, to, value);
