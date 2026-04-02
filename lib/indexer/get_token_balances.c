@@ -4,6 +4,7 @@
 
 #include "requests/get_token_balances_args.h"
 #include "../chains/chain_bindings.h"
+#include "../wallet/sequence_config.h"
 #include "../utils/string_utils.h"
 #include "../networking/http_client.h"
 
@@ -24,7 +25,10 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
     out->status = -1;
 
     const char *chain_name = sequence_get_chain_name(chain_id);
-    const char *host = replace_value("https://{value}-indexer.sequence.app/rpc/Indexer/", chain_name);
+    const char *host_template = sequence_config.indexer_url_template
+        ? sequence_config.indexer_url_template
+        : "https://{value}-indexer.sequence.app/rpc/Indexer/";
+    const char *host = replace_value(host_template, chain_name);
 
     HttpClient *c = http_client_create(host);
     if (!c) {

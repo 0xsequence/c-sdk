@@ -5,6 +5,7 @@
 #include "wallet/sequence_config.h"
 #include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
+#include "infrastructure/is_valid_message_signature.h"
 #include "storage/secure_storage.h"
 #include "wallet/sequence_connector.h"
 
@@ -32,12 +33,14 @@ void print_first_steps() {
     printf("\nLet's get things rolling!\n");
     print_use_case("Get Token Balances", "sequence-cli get_token_balances --chain_id <chain_id> --contract_address <address> --wallet_address <address> --include_metadata");
     print_use_case("Sign In with Email", "sequence-cli sign_in_with_email --email <email>");
+    print_use_case("Verify Signature", "sequence-cli verify_signature --chain_id <chain_id> --wallet_address <address> --message <message> --signature <signature>");
 }
 
 void print_use_cases() {
     printf("\nLet’s try out some features!\n");
     print_use_case("Sign Message", "sequence-cli sign_message --chain_id <chain_id> --message <message>");
     print_use_case("Send Transaction", "sequence-cli send_transaction --chain_id <chain_id> --to <address> --value <value>");
+    print_use_case("Verify Signature", "sequence-cli verify_signature --chain_id <chain_id> --wallet_address <address> --message <message> --signature <signature>");
 }
 
 int main(int argc, char **argv) {
@@ -170,6 +173,31 @@ int main(int argc, char **argv) {
         printf("Sequence Wallet Address: %s\n", wallet->address);
 
         print_use_cases();
+
+    } else if (strcmp(cmd, "verify_signature") == 0) {
+        print_header("Verify Signature");
+
+        const char *chain_id = NULL;
+        const char *wallet_address = NULL;
+        const char *message = NULL;
+        const char *signature = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--chain_id") == 0 && i + 1 < argc) chain_id = argv[++i];
+            else if (strcmp(argv[i], "--wallet_address") == 0 && i + 1 < argc) wallet_address = argv[++i];
+            else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
+            else if (strcmp(argv[i], "--signature") == 0 && i + 1 < argc) signature = argv[++i];
+        }
+        if (!chain_id || !wallet_address || !message || !signature) {
+            fprintf(stderr, "Missing --chain_id, --wallet_address, --message or --signature\n");
+            return 1;
+        }
+
+        SequenceIsValidMessageSignatureReturn *res =
+            sequence_is_valid_message_signature(chain_id, wallet_address, message, signature);
+
+        printf("Status: %d\n", res ? res->status : -1);
+        printf("isValid: %s\n", (res && res->is_valid) ? "true" : "false");
+        free_sequence_is_valid_message_signature_return(res);
 
     } else if (strcmp(cmd, "sign_message") == 0) {
         print_header("Sign Message");

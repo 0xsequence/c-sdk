@@ -22,6 +22,7 @@ add_library(sequence_c_sdk
         lib/wallet/sequence_config.c
         lib/wallet/sequence_request_signing.c
         lib/networking/http_client_mbed.c
+        lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
         lib/chains/chain_bindings.c
         lib/storage/storage_handler.c
