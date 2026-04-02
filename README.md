@@ -5,29 +5,22 @@
 #### Install dependencies
 
 ```shell
-arch -arm64 brew install cmake
-brew install secp256k1
+arch -arm64 brew install cmake pkg-config
+brew install secp256k1 cjson curl mbedtls
 ```
 
-For armcc support, install mbedtls via vcpkg.
+`mbedtls` is required by the current CMake build. For standard macOS setup, install it with Homebrew.
+If you are building with `armcc` / Arm Compiler, you can also provide `mbedtls` via `vcpkg`:
 
 ```shell
-// vcpkg
 cd ~
 git clone https://github.com/microsoft/vcpkg.git
 cd vcpkg
 sh bootstrap-vcpkg.sh
 export PATH="$HOME/vcpkg:$PATH"
 
-// Mbed TLS
-// If necessary, add it to your CMAKE_PREFIX_PATH
+# If necessary, add it to your CMAKE_PREFIX_PATH
 vcpkg install mbedtls
-```
-
-cJSON
-
-```shell
-brew install cjson
 ```
 
 #### Initialize the build directory
@@ -57,7 +50,7 @@ cmake --build build
 ./build/sequence-cli confirm_email_sign_in --email andygruening@gmail.com --code 123456
 
 # Use wallet
-./build/sequence-cli use_wallet --wallet_type Ethereum_SequenceV3
+./build/sequence-cli use_wallet --wallet_type Ethereum_EOA
 
 # Create wallet
 ./build/sequence-cli create_wallet
@@ -65,8 +58,11 @@ cmake --build build
 # Sign message
 ./build/sequence-cli sign_message --chain_id 80002 --message test
 
+# Verify signature
+./build/sequence-cli verify_signature --chain_id 80002 --wallet_address 0xb7461CcfFfc7378747C6f82804E4dEc04b9E6148 --message test --signature 0x...
+
 # Send transaction
-./build/sequence-cli send_transaction --chain_id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
+./build/sequence-cli send_transaction --chain_id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 0
 ```
 
 #### Homebrew version release
