@@ -25,6 +25,7 @@
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 #include "utils/timestamps.h"
+#include "wallet/sequence_request_signing.h"
 
 static eoa_wallet_t* cur_signer = NULL;
 static char* cur_challenge = NULL;
@@ -35,29 +36,32 @@ static char* sign_and_send(const char* endpoint, const char* payload)
 
     long nonce_int = timestamp_now_seconds();
 
+static char* sign_and_send(const char* endpoint, const char* payload)
+{
+    long long nonce_int = timestamp_next_nonce();
     char nonce[32];
-    snprintf(nonce, sizeof(nonce), "%ld", nonce_int);
+    char *address;
+    char *data_to_sign;
+    char *sig;
+    char *auth_header;
 
-    const char* tmpl = "POST /rpc/Wallet{0}\nnonce: {1}\n\n{2}";
-    const char* args[] = {endpoint, nonce, payload};
-    const char* data_to_sign = format_placeholders(tmpl, args, 3);
+    snprintf(nonce, sizeof(nonce), "%lld", nonce_int);
 
-    uint8_t hashed_to_sign[32];
-    keccak256((const uint8_t*)data_to_sign, strlen(data_to_sign), hashed_to_sign);
-
-    char* sig = wallet_sign_message_hex_eip191(cur_signer->ctx, cur_signer->seckey, data_to_sign);
+    address = sequence_wallet_address_from_seckey(cur_signer->seckey);
+    data_to_sign = sequence_build_wallet_request_preimage(endpoint, nonce, payload);
+    sig = sequence_sign_wallet_request_preimage(cur_signer->seckey, data_to_sign);
 
     HttpClient* c = http_client_create(g_wallet_api_url);
     if (!c)
     {
         fprintf(stderr, "Failed to create HttpClient\n");
+        free(address);
+        free(data_to_sign);
+        free(sig);
         return NULL;
     }
 
-    const char* header_template =
-        "Authorization: Ethereum_Secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
-    const char* header_args[] = {"@1:test", address, nonce, sig};
-    const char* auth_header = format_placeholders(header_template, header_args, 4);
+    auth_header = sequence_build_wallet_authorization_header("@1:test", address, nonce, sig);
 
     http_add_sequence_access_key(c);
     http_client_add_header(c, "Origin: http://localhost:3000");
@@ -73,6 +77,10 @@ static char* sign_and_send(const char* endpoint, const char* payload)
         fprintf(stderr, "Request failed: %s\n", r.error);
         free(cur_signer);
         cur_signer = NULL;
+        free(address);
+        free(data_to_sign);
+        free(sig);
+        free(auth_header);
         http_response_free(&r);
         http_client_destroy(c);
         return NULL;
@@ -84,6 +92,10 @@ static char* sign_and_send(const char* endpoint, const char* payload)
 
     //http_response_free(&r);
     http_client_destroy(c);
+    free(address);
+    free(data_to_sign);
+    free(sig);
+    free(auth_header);
 
     return body;
 }
