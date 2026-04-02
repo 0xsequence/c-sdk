@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include "lib/infrastructure/is_valid_message_signature.h"
 #include "lib/indexer/get_token_balances.h"
 #include "lib/wallet/sequence_config.h"
 #include "lib/wallet/sequence_connector.h"
@@ -36,8 +38,10 @@ int main(void) {
     // SETUP
     // **
 
-    char *access_key = "AQAAAAAAAKMyIkcpH4HUX6fFHcyNnjjSrak";
+    char *access_key = "AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE";
     sequence_config_init(access_key);
+    sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
+    sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
 
     // **
     // INDEXER
@@ -70,14 +74,21 @@ int main(void) {
     READ_LINE("Enter code: ", code);
     sequence_complete_auth_return *response = sequence_confirm_email_sign_in(email, code);
 
-    sequence_wallet *wallet;
-    if (response->wallet_count == 0)
+    const char *target_wallet_type = sequence_default_wallet_type();
+    sequence_wallet *wallet = NULL;
+
+    for (size_t i = 0; i < response->wallet_count; i++)
     {
-        wallet = sequence_create_wallet();
+        if (strcmp(response->wallets[i].type, target_wallet_type) == 0)
+        {
+            wallet = sequence_use_wallet(target_wallet_type);
+            break;
+        }
     }
-    else
+
+    if (!wallet)
     {
-        wallet = sequence_use_wallet(response->wallets[0].type);
+        wallet = sequence_create_wallet_of_type(target_wallet_type);
     }
 
     sequence_complete_auth_return_free(response);
@@ -89,15 +100,26 @@ int main(void) {
     // **
 
     READ_LINE("Enter message to sign: ", message);
-    const char *signature = sequence_sign_message("80002", message);
+    char *signature = sequence_sign_message("80002", message);
     printf("Signature from '%s': %s\n", message, signature);
+
+    SequenceIsValidMessageSignatureReturn *is_valid_message_signature = sequence_is_valid_message_signature(
+        "80002",
+        wallet->address,
+        message,
+        signature);
+    printf("Signature valid: %s (status=%d)\n",
+        (is_valid_message_signature && is_valid_message_signature->is_valid) ? "true" : "false",
+        is_valid_message_signature ? is_valid_message_signature->status : -1);
+    free_sequence_is_valid_message_signature_return(is_valid_message_signature);
+    free(signature);
 
     // **
     // SEND TRANSACTION
     // **
 
     const char *to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99";
-    const char *value = "1000";
+    const char *value = "0";
 
     const char *hash = sequence_send_transaction("80002", to, value);
     printf("Transaction hash: %s\n", hash);
