@@ -30,6 +30,15 @@ cmake -S . -B build
 cmake --build build
 ```
 
+#### Run tests
+
+```shell
+ctest --test-dir build --output-on-failure
+
+# Focused request-signing parity test
+./build/sequence_request_signing_test
+```
+
 #### Run the demo or cli
 
 ```shell
