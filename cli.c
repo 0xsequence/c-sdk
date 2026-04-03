@@ -32,14 +32,14 @@ void print_use_case(char *title, char *command) {
 
 void print_first_steps() {
     printf("\nLet's get things rolling!\n");
-    print_use_case("Get Token Balances", "sequence-wallet get_token_balances --chain_id <chain_id> --contract_address <address> --wallet_address <address> --include_metadata");
-    print_use_case("Sign In with Email", "sequence-wallet sign_in_with_email --email <email>");
+    print_use_case("Get Token Balances", "sequence-wallet get-token-balances --chain-id <chain-id> --contract-address <address> --wallet-address <address> --include-metadata");
+    print_use_case("Sign In with Email", "sequence-wallet sign-in-with-email --email <email>");
 }
 
 void print_use_cases() {
     printf("\nLet’s try out some features!\n");
-    print_use_case("Sign Message", "sequence-wallet sign_message --chain_id <chain_id> --message <message>");
-    print_use_case("Send Transaction", "sequence-wallet send_transaction --chain_id <chain_id> --to <address> --value <value>");
+    print_use_case("Sign Message", "sequence-wallet sign-message --chain-id <chain-id> --message <message>");
+    print_use_case("Send Transaction", "sequence-wallet send-transaction --chain-id <chain-id> --to <address> --value <value>");
 }
 
 void print_help(const char *prog) {
