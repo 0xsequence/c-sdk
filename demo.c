@@ -73,7 +73,7 @@ int main(void) {
     sequence_wallet *wallet;
     if (response->wallet_count == 0)
     {
-        wallet = sequence_create_wallet();
+        wallet = sequence_create_wallet("Ethereum_SequenceV3");
     }
     else
     {

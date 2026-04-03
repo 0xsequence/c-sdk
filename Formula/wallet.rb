@@ -19,6 +19,6 @@ class Wallet < Formula
 
   test do
     # Basic smoke test
-    assert_match "Usage", shell_output("#{bin}/sequence --help")
+    assert_match "Usage", shell_output("#{bin}/sequence-wallet --help")
   end
 end
