@@ -89,8 +89,8 @@ target_link_libraries(sequence-demo PRIVATE sequence_c_sdk)
 
 # ---- CLI ----
 
-add_executable(sequence-cli cli.c)
-target_link_libraries(sequence-cli PRIVATE sequence_c_sdk)
+add_executable(sequence-wallet cli.c)
+target_link_libraries(sequence-wallet PRIVATE sequence_c_sdk)
 
 # ---- Install ----
 
@@ -99,7 +99,7 @@ install(TARGETS sequence_c_sdk
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install(TARGETS sequence-demo sequence-cli
+install(TARGETS sequence-demo sequence-wallet
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(DIRECTORY lib/

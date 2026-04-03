@@ -69,7 +69,7 @@ static char* sign_and_send(const char* endpoint, const char* payload)
     http_client_add_header(c, "Accept: application/json");
     http_client_add_header(c, auth_header);
 
-    printf(">> %s (with header: %s)\n", payload, auth_header);
+    printf(">> Request\n%s\n%s\n\n", payload, auth_header);
 
     HttpResponse r = http_client_post_json(c, endpoint, payload, 10000);
 
@@ -87,11 +87,11 @@ static char* sign_and_send(const char* endpoint, const char* payload)
         return NULL;
     }
 
-    char* body = r.body;
+    char* body = strdup(r.body);
 
-    printf("Response: %s\n", body);
+    printf("<< Response\n%s\n\n", body);
 
-    //http_response_free(&r);
+    http_response_free(&r);
     http_client_destroy(c);
     free(address);
     free(data_to_sign);
@@ -191,7 +191,7 @@ sequence_complete_auth_return* sequence_confirm_email_sign_in(const char* email,
     return response;
 }
 
-sequence_wallet* sequence_use_wallet(const char* walletType)
+sequence_wallet* sequence_use_wallet(const char* wallet_type)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
@@ -199,7 +199,7 @@ sequence_wallet* sequence_use_wallet(const char* walletType)
         return NULL;
     }
 
-    const char* use_wallet_json = sequence_build_use_wallet_json(walletType);
+    const char* use_wallet_json = sequence_build_use_wallet_json(wallet_type);
     const char* body = sign_and_send("/UseWallet", use_wallet_json);
 
     sequence_wallet_response* response = sequence_build_wallet_return(body);
@@ -222,6 +222,11 @@ sequence_wallet* sequence_create_wallet()
 
 sequence_wallet* sequence_create_wallet_of_type(const char* walletType)
 {
+    if (!walletType)
+    {
+        walletType = sequence_default_wallet_type();
+    }
+
     if (!cur_signer || !cur_signer->ctx)
     {
         fprintf(stderr, "No signer initialized\n");
