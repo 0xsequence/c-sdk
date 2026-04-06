@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <secp256k1.h>
@@ -108,6 +109,39 @@ static char *secp256k1_sign_hash65_hex_v01(
     return hex;
 }
 
+char *wallet_sign_utf8_message_hex_eip191(
+    secp256k1_context *ctx,
+    const uint8_t seckey32[32],
+    const char *message_utf8
+) {
+    size_t pref_len = 0;
+    uint8_t *pref;
+    uint8_t prefixedHash32[32];
+
+    pref = prefixed_message_malloc((const uint8_t*)message_utf8, strlen(message_utf8), &pref_len);
+    keccak256(pref, pref_len, prefixedHash32);
+
+    memset(pref, 0, pref_len);
+    free(pref);
+
+    return secp256k1_sign_hash65_hex_v01(ctx, seckey32, prefixedHash32);
+}
+
+char *wallet_message_digest_hex_eip191(const char *message_utf8)
+{
+    size_t pref_len = 0;
+    uint8_t *pref;
+    uint8_t prefixedHash32[32];
+
+    pref = prefixed_message_malloc((const uint8_t*)message_utf8, strlen(message_utf8), &pref_len);
+    keccak256(pref, pref_len, prefixedHash32);
+
+    memset(pref, 0, pref_len);
+    free(pref);
+
+    return hex_encode0x_malloc(prefixedHash32, sizeof(prefixedHash32));
+}
+
 // Signs message bytes (optionally concatenated with chainId bytes) like ethers v5 signMessage.
 // Returns signature hex string: 0x + r(32) + s(32) + v(1), with v in {27,28}.
 char *wallet_sign_message_hex_eip191(
@@ -126,16 +160,6 @@ char *wallet_sign_message_hex_eip191(
     hex_encode_lower(digest32, 32, digestHex + 2);
     digestHex[66] = '\0';
 
-    // 3) prefixedHash = keccak256( EIP-191 prefix with len(digestHex) + digestHex )
-    size_t pref_len = 0;
-    uint8_t *pref = prefixed_message_malloc((const uint8_t*)digestHex, strlen(digestHex), &pref_len);
-
-    uint8_t prefixedHash32[32];
-    keccak256(pref, pref_len, prefixedHash32);
-
-    memset(pref, 0, pref_len);
-    free(pref);
-
-    // 4) sign prefixedHash32 directly
-    return secp256k1_sign_hash65_hex_v01(ctx, seckey32, prefixedHash32);
+    // 3) sign the digest hex string as an EIP-191 UTF-8 message
+    return wallet_sign_utf8_message_hex_eip191(ctx, seckey32, digestHex);
 }

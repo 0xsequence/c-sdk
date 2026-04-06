@@ -32,7 +32,7 @@ sequence_commit_verifier_response *sequence_build_commit_verifier_return(const c
         return NULL;
     }
 
-    sequence_commit_verifier_response *resp = malloc(sizeof *resp);
+    sequence_commit_verifier_response *resp = calloc(1, sizeof *resp);
     scvr_set_string(&resp->verifier,  cJSON_GetObjectItemCaseSensitive(root, "verifier"));
     scvr_set_string(&resp->loginHint, cJSON_GetObjectItemCaseSensitive(root, "loginHint"));
     scvr_set_string(&resp->challenge, cJSON_GetObjectItemCaseSensitive(root, "challenge"));

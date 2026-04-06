@@ -7,9 +7,13 @@ int sequence_sign_in_with_email(const char *email);
 
 sequence_complete_auth_return *sequence_confirm_email_sign_in(const char *email, const char *code);
 
-sequence_wallet *sequence_use_wallet(const char *wallet_type);
+const char *sequence_default_wallet_type(void);
 
-sequence_wallet *sequence_create_wallet(const char *wallet_type);
+sequence_wallet *sequence_use_wallet(const char *walletType);
+
+sequence_wallet *sequence_create_wallet_of_type(const char *walletType);
+
+sequence_wallet *sequence_create_wallet();
 
 char *sequence_sign_message(const char *chain_id, const char *message);
 

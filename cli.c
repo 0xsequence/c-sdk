@@ -7,6 +7,7 @@
 #include "wallet/sequence_config.h"
 #include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
+#include "infrastructure/is_valid_message_signature.h"
 #include "storage/secure_storage.h"
 #include "wallet/sequence_connector.h"
 
@@ -34,12 +35,14 @@ void print_first_steps() {
     printf("\nLet's get things rolling!\n");
     print_use_case("Get Token Balances", "sequence-wallet get-token-balances --chain-id <chain-id> --contract-address <address> --wallet-address <address> --include-metadata");
     print_use_case("Sign In with Email", "sequence-wallet sign-in-with-email --email <email>");
+    print_use_case("Verify Signature", "sequence-wallet verify-signature --chain-id <chain-id> --wallet-address <address> --message <message> --signature <signature>");
 }
 
 void print_use_cases() {
     printf("\nLet’s try out some features!\n");
     print_use_case("Sign Message", "sequence-wallet sign-message --chain-id <chain-id> --message <message>");
     print_use_case("Send Transaction", "sequence-wallet send-transaction --chain-id <chain-id> --to <address> --value <value>");
+    print_use_case("Verify Signature", "sequence-wallet verify-signature --chain-id <chain-id> --wallet-address <address> --message <message> --signature <signature>");
 }
 
 void print_help(const char *prog) {
@@ -65,30 +68,37 @@ void print_help(const char *prog) {
        "      Start email sign-in\n"
        "      --email <email>\n"
        "\n"
-       "  confirm-email-sign-in\n"
-       "      Confirm email sign-in\n"
-       "      --email <email>\n"
-       "      --code <code>\n"
-       "      --wallet_type <Ethereum_SequenceV3 | Ethereum_EOA> (optional)\n"
-       "\n"
-       "  use-wallet\n"
-       "      Select wallet type\n"
-       "      --wallet-type <wallet-type>\n"
+        "  confirm-email-sign-in\n"
+        "      Confirm email sign-in\n"
+        "      --email <email>\n"
+        "      --code <code>\n"
+        "      --wallet-type <Ethereum_SequenceV3 | Ethereum_EOA> (optional)\n"
+        "\n"
+        "  use-wallet\n"
+        "      Select wallet type\n"
+        "      --wallet-type <wallet-type>\n"
        "\n"
        "  create-wallet\n"
        "      Create a new wallet\n"
        "      --wallet-type <wallet-type> (optional)\n"
        "\n"
-       "  sign-message\n"
-       "      Sign a message\n"
-       "      --chain-id <chain-id>\n"
-       "      --message <message>\n"
-       "\n"
-       "  send-transaction\n"
-       "      Send a transaction\n"
-       "      --chain-id <chain-id>\n"
-       "      --to <address>\n"
-       "      --value <value-wei>\n"
+        "  sign-message\n"
+        "      Sign a message\n"
+        "      --chain-id <chain-id>\n"
+        "      --message <message>\n"
+        "\n"
+        "  verify-signature\n"
+        "      Verify a message signature\n"
+        "      --chain-id <chain-id>\n"
+        "      --wallet-address <address>\n"
+        "      --message <message>\n"
+        "      --signature <signature>\n"
+        "\n"
+        "  send-transaction\n"
+        "      Send a transaction\n"
+        "      --chain-id <chain-id>\n"
+        "      --to <address>\n"
+        "      --value <value-wei>\n"
        "\n"
        "Options:\n"
        "  -h, --help     Show this help message\n",
@@ -98,7 +108,7 @@ void print_help(const char *prog) {
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("Usage: sequence <command> [options]\n");
+        printf("Usage: sequence-wallet <command> [options]\n");
         return 1;
     }
 
@@ -182,7 +192,7 @@ int main(int argc, char **argv) {
 
         if (sequence_sign_in_with_email(email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
-            print_use_case("Confirm Email Sign In", "sequence-wallet confirm_email_sign_in --email <email> --code <code>");
+            print_use_case("Confirm Email Sign In", "sequence-wallet confirm-email-sign-in --email <email> --code <code>");
         }
     } else if (strcmp(cmd, "confirm-email-sign-in") == 0) {
         print_header("Confirming Email Sign In");
@@ -214,7 +224,7 @@ int main(int argc, char **argv) {
         if (wallet_type) {
             /* No wallets → create one */
             if (res->wallet_count == 0) {
-                wallet = sequence_create_wallet(wallet_type);
+                wallet = sequence_create_wallet_of_type(wallet_type);
             }
             else if (res->wallets) {
 
@@ -229,7 +239,7 @@ int main(int argc, char **argv) {
 
             /* If no wallet was selected, fallback to create the specified wallet type */
             if (!wallet) {
-                wallet = sequence_create_wallet(wallet_type);
+                wallet = sequence_create_wallet_of_type(wallet_type);
             }
 
             if (wallet) {
@@ -281,7 +291,9 @@ int main(int argc, char **argv) {
             walletType = "Ethereum_SequenceV3";
         }
 
-        const sequence_wallet *wallet = sequence_create_wallet(walletType);
+        const sequence_wallet *wallet = walletType
+            ? sequence_create_wallet_of_type(walletType)
+            : sequence_create_wallet();
 
         if (!wallet) {
             fprintf(stderr, "Failed to create wallet of type '%s'\n", walletType);
@@ -312,6 +324,31 @@ int main(int argc, char **argv) {
         printf("Sequence Wallet Address: %s\n", wallet->address);
 
         print_use_cases();
+
+    } else if (strcmp(cmd, "verify-signature") == 0 || strcmp(cmd, "verify_signature") == 0) {
+        print_header("Verify Signature");
+
+        const char *chain_id = NULL;
+        const char *wallet_address = NULL;
+        const char *message = NULL;
+        const char *signature = NULL;
+        for (int i = 2; i < argc; i++) {
+            if ((strcmp(argv[i], "--chain-id") == 0 || strcmp(argv[i], "--chain_id") == 0) && i + 1 < argc) chain_id = argv[++i];
+            else if ((strcmp(argv[i], "--wallet-address") == 0 || strcmp(argv[i], "--wallet_address") == 0) && i + 1 < argc) wallet_address = argv[++i];
+            else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
+            else if (strcmp(argv[i], "--signature") == 0 && i + 1 < argc) signature = argv[++i];
+        }
+        if (!chain_id || !wallet_address || !message || !signature) {
+            fprintf(stderr, "Missing --chain-id, --wallet-address, --message or --signature\n");
+            return 1;
+        }
+
+        SequenceIsValidMessageSignatureReturn *res =
+            sequence_is_valid_message_signature(chain_id, wallet_address, message, signature);
+
+        printf("Status: %d\n", res ? res->status : -1);
+        printf("isValid: %s\n", (res && res->is_valid) ? "true" : "false");
+        free_sequence_is_valid_message_signature_return(res);
 
     } else if (strcmp(cmd, "sign-message") == 0) {
         print_header("Sign Message");

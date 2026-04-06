@@ -5,29 +5,22 @@
 #### Install dependencies
 
 ```shell
-arch -arm64 brew install cmake
-brew install secp256k1
+arch -arm64 brew install cmake pkg-config
+brew install secp256k1 cjson curl mbedtls
 ```
 
-For armcc support, install mbedtls via vcpkg.
+`mbedtls` is required by the current CMake build. For standard macOS setup, install it with Homebrew.
+If you are building with `armcc` / Arm Compiler, you can also provide `mbedtls` via `vcpkg`:
 
 ```shell
-// vcpkg
 cd ~
 git clone https://github.com/microsoft/vcpkg.git
 cd vcpkg
 sh bootstrap-vcpkg.sh
 export PATH="$HOME/vcpkg:$PATH"
 
-// Mbed TLS
-// If necessary, add it to your CMAKE_PREFIX_PATH
+# If necessary, add it to your CMAKE_PREFIX_PATH
 vcpkg install mbedtls
-```
-
-cJSON
-
-```shell
-brew install cjson
 ```
 
 #### Initialize the build directory
@@ -35,6 +28,15 @@ brew install cjson
 ```shell
 cmake -S . -B build
 cmake --build build
+```
+
+#### Run tests
+
+```shell
+ctest --test-dir build --output-on-failure
+
+# Focused request-signing parity test
+./build/sequence_request_signing_test
 ```
 
 #### Run the demo or cli
@@ -54,10 +56,10 @@ cmake --build build
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456 --wallet-type Ethereum_SequenceV3
+./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456 --wallet-type Ethereum_EOA
 
 # Use wallet
-./build/sequence-wallet use-wallet --wallet-type Ethereum_SequenceV3
+./build/sequence-wallet use-wallet --wallet-type Ethereum_EOA
 
 # Create wallet
 ./build/sequence-wallet create-wallet
@@ -65,8 +67,11 @@ cmake --build build
 # Sign message
 ./build/sequence-wallet sign-message --chain-id 80002 --message test
 
+# Verify signature
+./build/sequence-wallet verify-signature --chain-id 80002 --wallet-address 0xb7461CcfFfc7378747C6f82804E4dEc04b9E6148 --message test --signature 0x...
+
 # Send transaction
-./build/sequence-wallet send-transaction --chain-id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 1000
+./build/sequence-wallet send-transaction --chain-id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 0
 ```
 
 #### Homebrew version release

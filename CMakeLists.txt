@@ -4,6 +4,7 @@ project(sequence-c-sdk C)
 set(CMAKE_C_STANDARD 99)
 
 include(GNUInstallDirs)
+include(CTest)
 
 find_package(MbedTLS CONFIG REQUIRED)
 find_package(CURL REQUIRED)
@@ -19,7 +20,9 @@ add_library(sequence_c_sdk
         lib/networking/http_client.c
         lib/wallet/sequence_connector.c
         lib/wallet/sequence_config.c
+        lib/wallet/sequence_request_signing.c
         lib/networking/http_client_mbed.c
+        lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
         lib/chains/chain_bindings.c
         lib/storage/storage_handler.c
@@ -107,3 +110,15 @@ install(EXPORT sequence-c-sdk-targets
         FILE sequence-c-sdk-targets.cmake
         NAMESPACE sequence::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sequence-c-sdk)
+
+if(BUILD_TESTING)
+    add_executable(sequence_request_signing_test
+            tests/sequence_request_signing_test.c)
+    target_link_libraries(sequence_request_signing_test PRIVATE sequence_c_sdk)
+    add_test(NAME sequence_request_signing_test COMMAND sequence_request_signing_test)
+
+    add_executable(timestamps_test
+            tests/timestamps_test.c)
+    target_link_libraries(timestamps_test PRIVATE sequence_c_sdk)
+    add_test(NAME timestamps_test COMMAND timestamps_test)
+endif()
