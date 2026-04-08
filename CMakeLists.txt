@@ -17,10 +17,13 @@ link_directories(${SECP256K1_LIBRARY_DIRS})
 # ---- Library ----
 
 add_library(sequence_c_sdk
+        lib/generated/waas/waas.gen.c
         lib/networking/http_client.c
-        lib/wallet/sequence_connector.c
+        lib/wallet/sequence_auth.c
         lib/wallet/sequence_config.c
         lib/wallet/sequence_request_signing.c
+        lib/wallet/sequence_wallet_ops.c
+        lib/wallet/sequence_wallet_shared.c
         lib/networking/http_client_mbed.c
         lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
@@ -36,18 +39,6 @@ add_library(sequence_c_sdk
         lib/utils/timestamps.c
         lib/utils/byte_utils.c
         lib/utils/string_utils.c
-        lib/wallet/requests/build_complete_auth_json.c
-        lib/wallet/requests/build_commit_verifier_json.c
-        lib/wallet/requests/build_sign_message_json.c
-        lib/wallet/requests/build_use_wallet_json.c
-        lib/wallet/requests/build_send_transaction_json.c
-        lib/wallet/requests/wallet_return.c
-        lib/wallet/requests/send_transaction_return.c
-        lib/wallet/requests/sign_message_return.c
-        lib/wallet/requests/build_create_wallet_json.c
-        lib/wallet/requests/commit_verifier_return.c
-        lib/wallet/requests/complete_auth_return.c
-        lib/wallet/sequence_wallet.c
         lib/utils/uuid.c
         lib/utils/globals.c
         lib/storage/secure_storage.c
@@ -104,7 +95,8 @@ install(TARGETS sequence-demo sequence-wallet
 
 install(DIRECTORY lib/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sequence
-        FILES_MATCHING PATTERN "*.h")
+        FILES_MATCHING PATTERN "*.h"
+        PATTERN "sequence_wallet_internal.h" EXCLUDE)
 
 install(EXPORT sequence-c-sdk-targets
         FILE sequence-c-sdk-targets.cmake

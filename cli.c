@@ -5,7 +5,6 @@
 #include <xpc/xpc.h>
 
 #include "wallet/sequence_config.h"
-#include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
 #include "infrastructure/is_valid_message_signature.h"
 #include "storage/secure_storage.h"
@@ -212,25 +211,28 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
+        waas_complete_auth_response *res = sequence_confirm_email_sign_in(email, code);
 
         if (!res) {
             fprintf(stderr, "sequence_confirm_email_sign_in failed\n");
             return 1;
         }
 
-        sequence_wallet *wallet = NULL;
+        waas_wallet *wallet = NULL;
 
         if (wallet_type) {
             /* No wallets → create one */
-            if (res->wallet_count == 0) {
+            if (res->wallets.count == 0) {
                 wallet = sequence_create_wallet_of_type(wallet_type);
             }
-            else if (res->wallets) {
+            else if (res->wallets.items) {
 
                 /* Prefer Ethereum_SequenceV3 if available */
-                for (size_t i = 0; i < res->wallet_count; ++i) {
-                    if (strcmp(res->wallets[i].type, wallet_type) == 0) {
+                for (size_t i = 0; i < res->wallets.count; ++i) {
+                    if (res->wallets.items[i] &&
+                        strcmp(
+                            waas_wallet_type_to_string(res->wallets.items[i]->type),
+                            wallet_type) == 0) {
                         wallet = sequence_use_wallet(wallet_type);
                         break;
                     }
@@ -251,19 +253,25 @@ int main(int argc, char **argv) {
 
         } else {
 
-            if (res->wallet_count == 0) {
+            if (res->wallets.count == 0) {
                 printf("No wallets available, please create a new wallet.\n");
                 print_use_case("Create Wallet", "sequence-wallet create-wallet");
 
-                sequence_complete_auth_return_free(res);
+                waas_complete_auth_response_free(res);
+                free(res);
                 return 0;
             }
 
             printf("Please select one of the existing wallet types:\n");
 
-            if (res->wallets) {
-                for (size_t i = 0; i < res->wallet_count; ++i) {
-                    printf("Wallet Type %zu: %s\n", i, res->wallets[i].type);
+            if (res->wallets.items) {
+                for (size_t i = 0; i < res->wallets.count; ++i) {
+                    if (res->wallets.items[i]) {
+                        printf(
+                            "Wallet Type %zu: %s\n",
+                            i,
+                            waas_wallet_type_to_string(res->wallets.items[i]->type));
+                    }
                 }
             }
 
@@ -274,7 +282,8 @@ int main(int argc, char **argv) {
             );
         }
 
-        sequence_complete_auth_return_free(res);
+        waas_complete_auth_response_free(res);
+        free(res);
 
     } else if (strcmp(cmd, "create-wallet") == 0) {
         print_header("Create Wallet");
@@ -291,7 +300,7 @@ int main(int argc, char **argv) {
             walletType = "Ethereum_SequenceV3";
         }
 
-        const sequence_wallet *wallet = walletType
+        waas_wallet *wallet = walletType
             ? sequence_create_wallet_of_type(walletType)
             : sequence_create_wallet();
 
@@ -301,6 +310,8 @@ int main(int argc, char **argv) {
         }
 
         printf("Sequence Wallet Address: %s\n", wallet->address);
+        waas_wallet_free(wallet);
+        free(wallet);
 
         print_use_cases();
 
@@ -314,7 +325,7 @@ int main(int argc, char **argv) {
         if (!walletType) { fprintf(stderr, "Missing --wallet-type\n"); return 1; }
 
         sequence_restore_session();
-        const sequence_wallet *wallet = sequence_use_wallet(walletType);
+        waas_wallet *wallet = sequence_use_wallet(walletType);
 
         if (!wallet) {
             fprintf(stderr, "Failed to use wallet of type '%s'\n", walletType);
@@ -322,6 +333,8 @@ int main(int argc, char **argv) {
         }
 
         printf("Sequence Wallet Address: %s\n", wallet->address);
+        waas_wallet_free(wallet);
+        free(wallet);
 
         print_use_cases();
 
@@ -366,8 +379,12 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        char *signature = sequence_sign_message(chain_id, message);
-        printf("Signature: %s\n", signature);
+        waas_sign_message_response *signature = sequence_sign_message(chain_id, message);
+        printf("Signature: %s\n", signature ? signature->signature : "(null)");
+        if (signature) {
+            waas_sign_message_response_free(signature);
+            free(signature);
+        }
 
     } else if (strcmp(cmd, "send-transaction") == 0) {
         print_header("Send Transaction");
@@ -386,8 +403,14 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        char *txHash = sequence_send_transaction(chain_id, to, value);
-        printf("Transaction Hash: %s\n", txHash);
+        waas_send_transaction_response *tx = sequence_send_transaction(chain_id, to, value);
+        printf(
+            "Transaction Hash: %s\n",
+            (tx && tx->response) ? tx->response->tx_hash : "(null)");
+        if (tx) {
+            waas_send_transaction_response_free(tx);
+            free(tx);
+        }
 
     } else {
         fprintf(stderr, "Unknown command: %s\n", cmd);

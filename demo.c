@@ -72,14 +72,18 @@ int main(void) {
     REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
 
     READ_LINE("Enter code: ", code);
-    sequence_complete_auth_return *response = sequence_confirm_email_sign_in(email, code);
+    waas_complete_auth_response *response = sequence_confirm_email_sign_in(email, code);
+    REQUIRE(response, "confirm_email_sign_in failed");
 
     const char *target_wallet_type = sequence_default_wallet_type();
-    sequence_wallet *wallet = NULL;
+    waas_wallet *wallet = NULL;
 
-    for (size_t i = 0; i < response->wallet_count; i++)
+    for (size_t i = 0; i < response->wallets.count; i++)
     {
-        if (strcmp(response->wallets[i].type, target_wallet_type) == 0)
+        if (response->wallets.items[i] &&
+            strcmp(
+                waas_wallet_type_to_string(response->wallets.items[i]->type),
+                target_wallet_type) == 0)
         {
             wallet = sequence_use_wallet(target_wallet_type);
             break;
@@ -90,8 +94,10 @@ int main(void) {
     {
         wallet = sequence_create_wallet_of_type(target_wallet_type);
     }
+    REQUIRE(wallet, "wallet selection failed");
 
-    sequence_complete_auth_return_free(response);
+    waas_complete_auth_response_free(response);
+    free(response);
 
     printf("Wallet address: %s\n", wallet->address);
 
@@ -100,19 +106,26 @@ int main(void) {
     // **
 
     READ_LINE("Enter message to sign: ", message);
-    char *signature = sequence_sign_message("80002", message);
-    printf("Signature from '%s': %s\n", message, signature);
+    waas_sign_message_response *signature = sequence_sign_message("80002", message);
+    REQUIRE(signature, "sign_message failed");
+    printf(
+        "Signature from '%s': %s\n",
+        message,
+        signature ? signature->signature : "(null)");
 
     SequenceIsValidMessageSignatureReturn *is_valid_message_signature = sequence_is_valid_message_signature(
         "80002",
         wallet->address,
         message,
-        signature);
+        signature ? signature->signature : NULL);
     printf("Signature valid: %s (status=%d)\n",
         (is_valid_message_signature && is_valid_message_signature->is_valid) ? "true" : "false",
         is_valid_message_signature ? is_valid_message_signature->status : -1);
     free_sequence_is_valid_message_signature_return(is_valid_message_signature);
-    free(signature);
+    if (signature) {
+        waas_sign_message_response_free(signature);
+        free(signature);
+    }
 
     // **
     // SEND TRANSACTION
@@ -121,8 +134,17 @@ int main(void) {
     const char *to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99";
     const char *value = "0";
 
-    const char *hash = sequence_send_transaction("80002", to, value);
-    printf("Transaction hash: %s\n", hash);
+    waas_send_transaction_response *tx = sequence_send_transaction("80002", to, value);
+    REQUIRE(tx, "send_transaction failed");
+    printf(
+        "Transaction hash: %s\n",
+        (tx && tx->response) ? tx->response->tx_hash : "(null)");
+    if (tx) {
+        waas_send_transaction_response_free(tx);
+        free(tx);
+    }
+    waas_wallet_free(wallet);
+    free(wallet);
 
     return 0;
 }
