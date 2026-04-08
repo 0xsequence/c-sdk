@@ -1,3 +1,6 @@
+#ifndef SEQUENCE_CONFIG_H
+#define SEQUENCE_CONFIG_H
+
 typedef struct {
     const char *access_key;
     const char *indexer_url_template;
@@ -11,3 +14,5 @@ void sequence_config_init(const char *new_access_key);
 void sequence_config_set_indexer_url_template(const char *indexer_url_template);
 
 void sequence_config_set_api_rpc_url(const char *api_rpc_url);
+
+#endif

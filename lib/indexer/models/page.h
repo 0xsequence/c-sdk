@@ -1,3 +1,6 @@
+#ifndef SEQUENCE_PAGE_H
+#define SEQUENCE_PAGE_H
+
 #include <stdbool.h>
 
 typedef struct {
@@ -5,3 +8,5 @@ typedef struct {
     int pageSize;
     bool more;
 } SequencePage;
+
+#endif

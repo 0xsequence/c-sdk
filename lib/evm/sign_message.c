@@ -1,15 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 
 #include "keccak256.h"
-
-static void die(const char *msg) {
-    fprintf(stderr, "%s\n", msg);
-    exit(1);
-}
 
 // --- helper: hex without 0x into existing buffer ---
 static void hex_encode_lower(const uint8_t *in, size_t inlen, char *out /* needs 2*inlen */) {
@@ -23,7 +17,7 @@ static void hex_encode_lower(const uint8_t *in, size_t inlen, char *out /* needs
 char *hex_encode0x_malloc(const uint8_t *buf, size_t len) {
     static const char h[] = "0123456789abcdef";
     char *out = (char *)malloc(2 + len * 2 + 1);
-    if (!out) die("malloc failed");
+    if (!out) return NULL;
     out[0] = '0';
     out[1] = 'x';
     for (size_t i = 0; i < len; i++) {
@@ -59,11 +53,11 @@ uint8_t *prefixed_message_malloc(const uint8_t *msg, size_t msg_len, size_t *out
 
     char len_dec[32];
     size_t len_dec_n = u64_to_dec(len_dec, sizeof(len_dec), (uint64_t)msg_len);
-    if (len_dec_n == 0) die("u64_to_dec failed");
+    if (len_dec_n == 0 || !out_len) return NULL;
 
     size_t total = (sizeof(prefix) - 1) + len_dec_n + msg_len;
     uint8_t *buf = (uint8_t *)malloc(total);
-    if (!buf) die("malloc failed");
+    if (!buf) return NULL;
 
     size_t off = 0;
     memcpy(buf + off, prefix, sizeof(prefix) - 1); off += (sizeof(prefix) - 1);
@@ -82,7 +76,7 @@ static char *secp256k1_sign_hash65_hex_v01(
 ) {
     secp256k1_ecdsa_recoverable_signature rsig;
     if (!secp256k1_ecdsa_sign_recoverable(ctx, &rsig, hash32, seckey32, NULL, NULL)) {
-        die("secp256k1_ecdsa_sign_recoverable failed");
+        return NULL;
     }
 
     uint8_t compact64[64];
@@ -118,7 +112,14 @@ char *wallet_sign_utf8_message_hex_eip191(
     uint8_t *pref;
     uint8_t prefixedHash32[32];
 
+    if (!ctx || !seckey32 || !message_utf8) {
+        return NULL;
+    }
+
     pref = prefixed_message_malloc((const uint8_t*)message_utf8, strlen(message_utf8), &pref_len);
+    if (!pref) {
+        return NULL;
+    }
     keccak256(pref, pref_len, prefixedHash32);
 
     memset(pref, 0, pref_len);
@@ -133,7 +134,14 @@ char *wallet_message_digest_hex_eip191(const char *message_utf8)
     uint8_t *pref;
     uint8_t prefixedHash32[32];
 
+    if (!message_utf8) {
+        return NULL;
+    }
+
     pref = prefixed_message_malloc((const uint8_t*)message_utf8, strlen(message_utf8), &pref_len);
+    if (!pref) {
+        return NULL;
+    }
     keccak256(pref, pref_len, prefixedHash32);
 
     memset(pref, 0, pref_len);
@@ -149,6 +157,10 @@ char *wallet_sign_message_hex_eip191(
     const uint8_t seckey32[32],
     const char *data_to_sign_utf8
 ) {
+    if (!ctx || !seckey32 || !data_to_sign_utf8) {
+        return NULL;
+    }
+
     // 1) digest32 = keccak256(messageBytes)
     uint8_t digest32[32];
     keccak256((const uint8_t*)data_to_sign_utf8, strlen(data_to_sign_utf8), digest32);

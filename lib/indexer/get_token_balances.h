@@ -1,3 +1,6 @@
+#ifndef SEQUENCE_GET_TOKEN_BALANCES_H
+#define SEQUENCE_GET_TOKEN_BALANCES_H
+
 #include "requests/get_token_balances_return.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -12,3 +15,5 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
 void free_sequence_token_balances_return(
     SequenceGetTokenBalancesReturn *data
 );
+
+#endif

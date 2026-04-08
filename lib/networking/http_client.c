@@ -1,4 +1,5 @@
 #include "http_client.h"
+#include "http_client_common.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -10,56 +11,6 @@ struct HttpClient {
     char *bearer_token;
     struct curl_slist *default_headers;
 };
-
-/* ---------- helpers ---------- */
-
-static char* dup_cstr(const char *s) {
-    if (!s) return NULL;
-    size_t n = strlen(s);
-    char *p = (char*)malloc(n + 1);
-    if (!p) return NULL;
-    memcpy(p, s, n + 1);
-    return p;
-}
-
-static char* join_url(const char *base, const char *path) {
-    if (!base) return NULL;
-    if (!path) path = "";
-
-    size_t bl = strlen(base);
-    size_t pl = strlen(path);
-
-    int base_has_slash = (bl > 0 && base[bl - 1] == '/');
-    int path_has_slash = (pl > 0 && path[0] == '/');
-
-    /* Ensure exactly one slash between base and path */
-    size_t extra = 1; /* for '\0' */
-    size_t need = bl + pl + extra + 1; /* +1 maybe for inserting/removing slash */
-    char *out = (char*)malloc(need);
-    if (!out) return NULL;
-
-    if (bl == 0) {
-        snprintf(out, need, "%s", path);
-        return out;
-    }
-
-    if (pl == 0) {
-        snprintf(out, need, "%s", base);
-        return out;
-    }
-
-    if (base_has_slash && path_has_slash) {
-        /* drop one slash */
-        snprintf(out, need, "%.*s%s", (int)(bl - 1), base, path);
-    } else if (!base_has_slash && !path_has_slash) {
-        /* add slash */
-        snprintf(out, need, "%s/%s", base, path);
-    } else {
-        /* already exactly one slash */
-        snprintf(out, need, "%s%s", base, path);
-    }
-    return out;
-}
 
 typedef struct {
     char *data;
@@ -92,7 +43,7 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
 static HttpResponse make_error(const char *msg) {
     HttpResponse r;
     memset(&r, 0, sizeof(r));
-    r.error = dup_cstr(msg ? msg : "Unknown error");
+    r.error = http_dup_cstr(msg ? msg : "Unknown error");
     return r;
 }
 
@@ -105,7 +56,7 @@ HttpClient* http_client_create(const char *base_url) {
     HttpClient *c = (HttpClient*)calloc(1, sizeof(HttpClient));
     if (!c) return NULL;
 
-    c->base_url = dup_cstr(base_url ? base_url : "");
+    c->base_url = http_dup_cstr(base_url ? base_url : "");
     if (!c->base_url) {
         free(c);
         return NULL;
@@ -128,7 +79,7 @@ void http_client_destroy(HttpClient *c) {
 int http_client_set_bearer_token(HttpClient *c, const char *token) {
     if (!c) return 0;
     free(c->bearer_token);
-    c->bearer_token = token ? dup_cstr(token) : NULL;
+    c->bearer_token = token ? http_dup_cstr(token) : NULL;
     return (token == NULL) || (c->bearer_token != NULL);
 }
 
@@ -141,19 +92,14 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
 }
 
 int http_add_sequence_access_key(HttpClient *c) {
-    if (!c || !sequence_config.access_key) {
+    char *header;
+
+    if (!c || !sequence_config.access_key || !sequence_config.access_key[0]) {
         return 0; /* no key configured */
     }
 
-    const char *key = sequence_config.access_key;
-
-    /* "X-Access-Key: " (14 chars) + key + '\0' */
-    size_t len = strlen("X-Access-Key: ") + strlen(key) + 1;
-
-    char *header = (char *)malloc(len);
+    header = http_sequence_access_key_header();
     if (!header) return -1;
-
-    snprintf(header, len, "X-Access-Key: %s", key);
 
     /* http_client_add_header is expected to copy or take ownership */
     http_client_add_header(c, header);
@@ -172,7 +118,7 @@ HttpResponse http_client_post_json(HttpClient *c,
 {
     if (!c) return make_error("HttpClient is NULL");
 
-    char *url = join_url(c->base_url, path);
+    char *url = http_join_url(c->base_url, path);
     if (!url) return make_error("Failed to build URL");
 
     CURL *curl = curl_easy_init();
@@ -246,10 +192,10 @@ HttpResponse http_client_post_json(HttpClient *c,
     memset(&r, 0, sizeof(r));
 
     if (rc != CURLE_OK) {
-        r.error = dup_cstr(curl_easy_strerror(rc));
+        r.error = http_dup_cstr(curl_easy_strerror(rc));
     } else {
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &r.status_code);
-        r.body = buf.data ? buf.data : dup_cstr("");
+        r.body = buf.data ? buf.data : http_dup_cstr("");
         r.body_len = buf.len;
         buf.data = NULL; /* transfer ownership */
     }

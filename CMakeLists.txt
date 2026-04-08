@@ -16,34 +16,35 @@ link_directories(${SECP256K1_LIBRARY_DIRS})
 
 # ---- Library ----
 
-add_library(sequence_c_sdk
+set(SEQUENCE_SDK_SOURCES
         lib/generated/waas/waas.gen.c
-        lib/networking/http_client.c
         lib/wallet/sequence_auth.c
         lib/wallet/sequence_config.c
         lib/wallet/sequence_request_signing.c
         lib/wallet/sequence_wallet_ops.c
         lib/wallet/sequence_wallet_shared.c
+        lib/networking/http_client.c
+        lib/networking/http_client_common.c
         lib/networking/http_client_mbed.c
         lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
-        lib/chains/chain_bindings.c
-        lib/storage/storage_handler.c
-        lib/storage/secure_storage.c
         lib/indexer/requests/get_token_balances_args.c
         lib/indexer/requests/get_token_balances_return.c
+        lib/chains/chain_bindings.c
+        lib/storage/secure_storage.c
+        lib/storage/storage_handler.c
+        lib/evm/eoa_wallet.c
         lib/evm/keccak256.c
         lib/evm/sign_message.c
-        lib/evm/eoa_wallet.c
-        lib/utils/hex_utils.c
-        lib/utils/timestamps.c
         lib/utils/byte_utils.c
-        lib/utils/string_utils.c
-        lib/utils/uuid.c
         lib/utils/globals.c
-        lib/storage/secure_storage.c
-        lib/storage/secure_storage.h
+        lib/utils/hex_utils.c
+        lib/utils/string_utils.c
+        lib/utils/timestamps.c
+        lib/utils/uuid.c
 )
+
+add_library(sequence_c_sdk ${SEQUENCE_SDK_SOURCES})
 
 target_include_directories(sequence_c_sdk
         PUBLIC

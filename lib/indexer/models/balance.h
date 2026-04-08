@@ -1,3 +1,6 @@
+#ifndef SEQUENCE_BALANCE_H
+#define SEQUENCE_BALANCE_H
+
 typedef struct {
     char *contractType;
     char *contractAddress;
@@ -8,3 +11,5 @@ typedef struct {
     int blockNumber;
     int chainId;
 } SequenceBalance;
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef SEQUENCE_EOA_WALLET_H
+#define SEQUENCE_EOA_WALLET_H
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -39,3 +42,5 @@ char *eoa_wallet_get_address(
 );
 
 void eoa_wallet_destroy(eoa_wallet_t *wallet);
+
+#endif

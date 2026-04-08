@@ -7,6 +7,54 @@
 #include "chains/chain_bindings.h"
 #include "storage/secure_storage.h"
 
+static void *sequence_alloc_rpc_response(
+    size_t size,
+    void (*init_response)(void *),
+    sequence_wallet_rpc_context *rpc,
+    const char *message
+)
+{
+    void *response = calloc(1, size);
+
+    if (!response)
+    {
+        sequence_set_waas_error(
+            &rpc->error,
+            "ClientError",
+            message,
+            NULL);
+        return NULL;
+    }
+
+    init_response(response);
+    return response;
+}
+
+static void *sequence_finish_rpc_response(
+    void *response,
+    void (*free_response)(void *),
+    sequence_wallet_rpc_context *rpc,
+    const char *operation
+)
+{
+    if (!response || rpc->error.message)
+    {
+        sequence_log_waas_error(operation, &rpc->error);
+    }
+
+    if (rpc->error.message)
+    {
+        if (response)
+        {
+            free_response(response);
+            free(response);
+        }
+        return NULL;
+    }
+
+    return response;
+}
+
 waas_wallet *sequence_use_wallet(const char* wallet_type)
 {
     waas_use_wallet_params params;
@@ -137,7 +185,7 @@ waas_wallet_sign_message_response *sequence_sign_message(
     waas_wallet_sign_message_response *response = NULL;
     sequence_wallet_rpc_context rpc;
     char *address = NULL;
-    const char *network;
+    const char *network = NULL;
 
     if (!sequence_require_signer_initialized())
     {
@@ -148,17 +196,15 @@ waas_wallet_sign_message_response *sequence_sign_message(
     waas_wallet_sign_message_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
-    response = calloc(1, sizeof(*response));
+    response = sequence_alloc_rpc_response(
+        sizeof(*response),
+        (void (*)(void *))waas_wallet_sign_message_response_init,
+        &rpc,
+        "failed to allocate SignMessage response");
     if (!response)
     {
-        sequence_set_waas_error(
-            &rpc.error,
-            "ClientError",
-            "failed to allocate SignMessage response",
-            NULL);
         goto cleanup;
     }
-    waas_wallet_sign_message_response_init(response);
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
@@ -194,24 +240,14 @@ waas_wallet_sign_message_response *sequence_sign_message(
     }
 
 cleanup:
-    if (!response || rpc.error.message)
-    {
-        sequence_log_waas_error("SignMessage", &rpc.error);
-    }
-
     sequence_wallet_rpc_context_free(&rpc);
     free(address);
     waas_sign_message_params_free(&params);
-    if (rpc.error.message)
-    {
-        if (response)
-        {
-            waas_wallet_sign_message_response_free(response);
-            free(response);
-        }
-        return NULL;
-    }
-    return response;
+    return sequence_finish_rpc_response(
+        response,
+        (void (*)(void *))waas_wallet_sign_message_response_free,
+        &rpc,
+        "SignMessage");
 }
 
 waas_wallet_send_transaction_response *sequence_send_transaction(
@@ -224,7 +260,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     waas_wallet_send_transaction_response *response = NULL;
     sequence_wallet_rpc_context rpc;
     char *address = NULL;
-    const char *network;
+    const char *network = NULL;
 
     if (!sequence_require_signer_initialized())
     {
@@ -235,17 +271,15 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     waas_wallet_send_transaction_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
-    response = calloc(1, sizeof(*response));
+    response = sequence_alloc_rpc_response(
+        sizeof(*response),
+        (void (*)(void *))waas_wallet_send_transaction_response_init,
+        &rpc,
+        "failed to allocate SendTransaction response");
     if (!response)
     {
-        sequence_set_waas_error(
-            &rpc.error,
-            "ClientError",
-            "failed to allocate SendTransaction response",
-            NULL);
         goto cleanup;
     }
-    waas_wallet_send_transaction_response_init(response);
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
@@ -294,22 +328,12 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     }
 
 cleanup:
-    if (!response || rpc.error.message)
-    {
-        sequence_log_waas_error("SendTransaction", &rpc.error);
-    }
-
     sequence_wallet_rpc_context_free(&rpc);
     free(address);
     waas_send_transaction_params_free(&params);
-    if (rpc.error.message)
-    {
-        if (response)
-        {
-            waas_wallet_send_transaction_response_free(response);
-            free(response);
-        }
-        return NULL;
-    }
-    return response;
+    return sequence_finish_rpc_response(
+        response,
+        (void (*)(void *))waas_wallet_send_transaction_response_free,
+        &rpc,
+        "SendTransaction");
 }
