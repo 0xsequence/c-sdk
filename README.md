@@ -33,9 +33,9 @@ cmake --build build
 #### Temporary generated-client patch
 
 The vendored generated WAAS C client currently includes a small local patch in
-[`lib/generated/waas/waas.gen.c:736`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L736)
+[`lib/generated/waas/waas.gen.c:744`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L744)
 through
-[`lib/generated/waas/waas.gen.c:748`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L748)
+[`lib/generated/waas/waas.gen.c:755`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L755)
 (`+3/-6`) to tolerate a missing `iss` field in the live `CompleteAuth`
 response.
 
