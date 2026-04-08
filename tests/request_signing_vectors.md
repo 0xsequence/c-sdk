@@ -31,6 +31,102 @@ All signatures below follow the current C SDK behavior:
 - Scope:
   `@1:test`
 
+## Vector: CommitVerifier
+
+- Inputs:
+  - endpoint: `/CommitVerifier`
+  - nonce: `1710000003`
+  - identityType: `Email`
+  - authMode: `OTP`
+  - handle: `test@example.com`
+
+- Expected payload:
+  ```json
+  {"params":{"identityType":"Email","authMode":"OTP","metadata":{},"handle":"test@example.com"}}
+  ```
+
+- Expected preimage:
+  ```text
+  POST /rpc/Wallet/CommitVerifier
+  nonce: 1710000003
+
+  {"params":{"identityType":"Email","authMode":"OTP","metadata":{},"handle":"test@example.com"}}
+  ```
+
+- Expected digest hex:
+  `0xf39c10b9784a7d291c58b6f53136c014985c90101a08d8b9b3531a4ec90c672f`
+
+- Expected signature:
+  `0x1f4c5dc95a2c943b61142bd1a839c92e05ea23e80f6b94b58162948ae9a64a467a46a683fb8daadb69b730c1b7aa4fa3cf4f5812de793273fcf40060d8bc3da01c`
+
+- Expected authorization header:
+  ```text
+  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000003,sig="0x1f4c5dc95a2c943b61142bd1a839c92e05ea23e80f6b94b58162948ae9a64a467a46a683fb8daadb69b730c1b7aa4fa3cf4f5812de793273fcf40060d8bc3da01c"
+  ```
+
+## Vector: UseWallet
+
+- Inputs:
+  - endpoint: `/UseWallet`
+  - nonce: `1710000004`
+  - walletType: `Ethereum_EOA`
+  - walletIndex: `0`
+
+- Expected payload:
+  ```json
+  {"params":{"walletType":"Ethereum_EOA","walletIndex":0}}
+  ```
+
+- Expected preimage:
+  ```text
+  POST /rpc/Wallet/UseWallet
+  nonce: 1710000004
+
+  {"params":{"walletType":"Ethereum_EOA","walletIndex":0}}
+  ```
+
+- Expected digest hex:
+  `0x28157674c8911273678a3eb23284d730b3c899883be52886104379c187b06ca6`
+
+- Expected signature:
+  `0xcfb3f9ead0541191b568421dd3b46e8544e141d2fa2fcb5e56a99aefb82a564f5b0846412f50ff711aac9051b144d322fac31a8e59181891136eaf2667c80f891c`
+
+- Expected authorization header:
+  ```text
+  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000004,sig="0xcfb3f9ead0541191b568421dd3b46e8544e141d2fa2fcb5e56a99aefb82a564f5b0846412f50ff711aac9051b144d322fac31a8e59181891136eaf2667c80f891c"
+  ```
+
+## Vector: CreateWallet
+
+- Inputs:
+  - endpoint: `/CreateWallet`
+  - nonce: `1710000005`
+  - walletType: `Ethereum_EOA`
+
+- Expected payload:
+  ```json
+  {"params":{"walletType":"Ethereum_EOA"}}
+  ```
+
+- Expected preimage:
+  ```text
+  POST /rpc/Wallet/CreateWallet
+  nonce: 1710000005
+
+  {"params":{"walletType":"Ethereum_EOA"}}
+  ```
+
+- Expected digest hex:
+  `0x1c8d8e5af6e44c973c6619218ebcf89560e59cb4f775acd12b875e2442e98f6f`
+
+- Expected signature:
+  `0xff6cee523cfd26cc547afc5d9d8961ba025392095884b11333abdc4cdc0e26ac16eb955cea2c444c479fb9ea011a728dd1509049c3744cd3c038bc3a51a714811b`
+
+- Expected authorization header:
+  ```text
+  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000005,sig="0xff6cee523cfd26cc547afc5d9d8961ba025392095884b11333abdc4cdc0e26ac16eb955cea2c444c479fb9ea011a728dd1509049c3744cd3c038bc3a51a714811b"
+  ```
+
 ## Vector: SignMessage
 
 - Inputs:
@@ -42,7 +138,7 @@ All signatures below follow the current C SDK behavior:
 
 - Expected payload:
   ```json
-  {"params":{"wallet":"0x1234567890123456789012345678901234567890","network":"amoy","message":"hello"}}
+  {"params":{"network":"amoy","wallet":"0x1234567890123456789012345678901234567890","message":"hello"}}
   ```
 
 - Expected preimage:
@@ -50,18 +146,18 @@ All signatures below follow the current C SDK behavior:
   POST /rpc/Wallet/SignMessage
   nonce: 1710000000
 
-  {"params":{"wallet":"0x1234567890123456789012345678901234567890","network":"amoy","message":"hello"}}
+  {"params":{"network":"amoy","wallet":"0x1234567890123456789012345678901234567890","message":"hello"}}
   ```
 
 - Expected digest hex:
-  `0x24b512b5aad6b77720d929914c135c81fa42879f21c3d1c6e86fa3cac4c18ca3`
+  `0x1da9b6e65c2472c77b51667e01e60268e10215073177cc7d7f192b0fdbb415ec`
 
 - Expected signature:
-  `0x1ed397e17208e21f86bb8b87f00b6e85dc7cf00a999e0f735aafefe75b701f792a60894919590a142e55a4be4aa4fa58d9782702e38795660191080139a3ceda1b`
+  `0x16ff2ad055498874a0531874821fcaa687168fbc4402e5d446592888b2c29c7b1b968cb1316228c4fc0164e2af60d211947beb5a1ee1e84c20d36c59522269251c`
 
 - Expected authorization header:
   ```text
-  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000000,sig="0x1ed397e17208e21f86bb8b87f00b6e85dc7cf00a999e0f735aafefe75b701f792a60894919590a142e55a4be4aa4fa58d9782702e38795660191080139a3ceda1b"
+  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000000,sig="0x16ff2ad055498874a0531874821fcaa687168fbc4402e5d446592888b2c29c7b1b968cb1316228c4fc0164e2af60d211947beb5a1ee1e84c20d36c59522269251c"
   ```
 
 ## Vector: SendTransaction
@@ -76,7 +172,7 @@ All signatures below follow the current C SDK behavior:
 
 - Expected payload:
   ```json
-  {"params":{"mode":"Relayer","wallet":"0x1234567890123456789012345678901234567890","network":"amoy","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000"}}
+  {"params":{"network":"amoy","wallet":"0x1234567890123456789012345678901234567890","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"Relayer"}}
   ```
 
 - Expected preimage:
@@ -84,21 +180,19 @@ All signatures below follow the current C SDK behavior:
   POST /rpc/Wallet/SendTransaction
   nonce: 1710000001
 
-  {"params":{"mode":"Relayer","wallet":"0x1234567890123456789012345678901234567890","network":"amoy","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000"}}
+  {"params":{"network":"amoy","wallet":"0x1234567890123456789012345678901234567890","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"Relayer"}}
   ```
 
 - Expected digest hex:
-  `0xa38ffa5cde4c9830190b7c81c69fe4fbd6519eb7f53c348f2a9829cbfe11cb98`
+  `0x9ba4e8c8a581eb0330ef48a1cf6bad11009db74c3d6bf9e913799416d0e00305`
 
 - Expected signature:
-  `0xe4b227b6cb3cbd30ac636b06f97b9e44488d966ca0d49a257f9580477720881022085426548aabfc151d7ebfe0ad7271044d145c1c76cef6aeebeb67d520ae3d1c`
+  `0xa7ea45d8349c3cdb5c5a4a78937120048c4711cb2e12bf13725423b391d6733e5c0080dbc697fd12a08c5c4faa7bb5182f7f6f956597e1f437b5ec9bbaa164ae1c`
 
 - Expected authorization header:
   ```text
-  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000001,sig="0xe4b227b6cb3cbd30ac636b06f97b9e44488d966ca0d49a257f9580477720881022085426548aabfc151d7ebfe0ad7271044d145c1c76cef6aeebeb67d520ae3d1c"
+  Authorization: Ethereum_Secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000001,sig="0xa7ea45d8349c3cdb5c5a4a78937120048c4711cb2e12bf13725423b391d6733e5c0080dbc697fd12a08c5c4faa7bb5182f7f6f956597e1f437b5ec9bbaa164ae1c"
   ```
-
-
 
 ## Vector: CompleteAuth
 
