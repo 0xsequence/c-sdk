@@ -191,27 +191,25 @@ int main(int argc, char **argv) {
 
         if (sequence_sign_in_with_email(email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
-            print_use_case("Confirm Email Sign In", "sequence-wallet confirm-email-sign-in --email <email> --code <code>");
+            print_use_case("Confirm Email Sign In", "sequence-wallet confirm-email-sign-in --code <code>");
         }
     } else if (strcmp(cmd, "confirm-email-sign-in") == 0) {
         print_header("Confirming Email Sign In");
 
-        const char *email = NULL;
         const char *code = NULL;
         const char *wallet_type = NULL;
 
         for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
-            else if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
+            if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
             else if (strcmp(argv[i], "--wallet-type") == 0) wallet_type = argv[++i];
         }
-        if (!email || !code) {
-            fprintf(stderr, "Missing --email or --code\n");
+        if (!code) {
+            fprintf(stderr, "Missing --code\n");
             return 1;
         }
 
         sequence_restore_session();
-        waas_complete_auth_response *res = sequence_confirm_email_sign_in(email, code);
+        waas_wallet_complete_auth_response *res = sequence_confirm_email_sign_in(code);
 
         if (!res) {
             fprintf(stderr, "sequence_confirm_email_sign_in failed\n");
@@ -257,7 +255,7 @@ int main(int argc, char **argv) {
                 printf("No wallets available, please create a new wallet.\n");
                 print_use_case("Create Wallet", "sequence-wallet create-wallet");
 
-                waas_complete_auth_response_free(res);
+                waas_wallet_complete_auth_response_free(res);
                 free(res);
                 return 0;
             }
@@ -282,7 +280,7 @@ int main(int argc, char **argv) {
             );
         }
 
-        waas_complete_auth_response_free(res);
+        waas_wallet_complete_auth_response_free(res);
         free(res);
 
     } else if (strcmp(cmd, "create-wallet") == 0) {
@@ -379,10 +377,10 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        waas_sign_message_response *signature = sequence_sign_message(chain_id, message);
+        waas_wallet_sign_message_response *signature = sequence_sign_message(chain_id, message);
         printf("Signature: %s\n", signature ? signature->signature : "(null)");
         if (signature) {
-            waas_sign_message_response_free(signature);
+            waas_wallet_sign_message_response_free(signature);
             free(signature);
         }
 
@@ -403,12 +401,12 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        waas_send_transaction_response *tx = sequence_send_transaction(chain_id, to, value);
+        waas_wallet_send_transaction_response *tx = sequence_send_transaction(chain_id, to, value);
         printf(
             "Transaction Hash: %s\n",
             (tx && tx->response) ? tx->response->tx_hash : "(null)");
         if (tx) {
-            waas_send_transaction_response_free(tx);
+            waas_wallet_send_transaction_response_free(tx);
             free(tx);
         }
 

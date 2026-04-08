@@ -72,7 +72,7 @@ int main(void) {
     REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
 
     READ_LINE("Enter code: ", code);
-    waas_complete_auth_response *response = sequence_confirm_email_sign_in(email, code);
+    waas_wallet_complete_auth_response *response = sequence_confirm_email_sign_in(code);
     REQUIRE(response, "confirm_email_sign_in failed");
 
     const char *target_wallet_type = sequence_default_wallet_type();
@@ -96,7 +96,7 @@ int main(void) {
     }
     REQUIRE(wallet, "wallet selection failed");
 
-    waas_complete_auth_response_free(response);
+    waas_wallet_complete_auth_response_free(response);
     free(response);
 
     printf("Wallet address: %s\n", wallet->address);
@@ -106,7 +106,7 @@ int main(void) {
     // **
 
     READ_LINE("Enter message to sign: ", message);
-    waas_sign_message_response *signature = sequence_sign_message("80002", message);
+    waas_wallet_sign_message_response *signature = sequence_sign_message("80002", message);
     REQUIRE(signature, "sign_message failed");
     printf(
         "Signature from '%s': %s\n",
@@ -123,7 +123,7 @@ int main(void) {
         is_valid_message_signature ? is_valid_message_signature->status : -1);
     free_sequence_is_valid_message_signature_return(is_valid_message_signature);
     if (signature) {
-        waas_sign_message_response_free(signature);
+        waas_wallet_sign_message_response_free(signature);
         free(signature);
     }
 
@@ -134,13 +134,13 @@ int main(void) {
     const char *to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99";
     const char *value = "0";
 
-    waas_send_transaction_response *tx = sequence_send_transaction("80002", to, value);
+    waas_wallet_send_transaction_response *tx = sequence_send_transaction("80002", to, value);
     REQUIRE(tx, "send_transaction failed");
     printf(
         "Transaction hash: %s\n",
         (tx && tx->response) ? tx->response->tx_hash : "(null)");
     if (tx) {
-        waas_send_transaction_response_free(tx);
+        waas_wallet_send_transaction_response_free(tx);
         free(tx);
     }
     waas_wallet_free(wallet);

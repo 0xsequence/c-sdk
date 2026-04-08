@@ -63,13 +63,13 @@ static char *copy_prepared_body(const waas_prepared_request *prepared_request)
 static char *build_complete_auth_payload(const char *verifier, const char *answer)
 {
     waas_complete_auth_params params;
-    waas_complete_auth_request request;
+    waas_wallet_complete_auth_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_complete_auth_params_init(&params);
-    waas_complete_auth_request_init(&request);
+    waas_wallet_complete_auth_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -104,13 +104,13 @@ static char *build_complete_auth_payload(const char *verifier, const char *answe
 static char *build_commit_verifier_payload(const char *handle)
 {
     waas_commit_verifier_params params;
-    waas_commit_verifier_request request;
+    waas_wallet_commit_verifier_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_commit_verifier_params_init(&params);
-    waas_commit_verifier_request_init(&request);
+    waas_wallet_commit_verifier_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -145,13 +145,13 @@ static char *build_commit_verifier_payload(const char *handle)
 static char *build_create_wallet_payload(waas_wallet_type wallet_type)
 {
     waas_create_wallet_params params;
-    waas_create_wallet_request request;
+    waas_wallet_create_wallet_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_create_wallet_params_init(&params);
-    waas_create_wallet_request_init(&request);
+    waas_wallet_create_wallet_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -182,13 +182,13 @@ static char *build_create_wallet_payload(waas_wallet_type wallet_type)
 static char *build_use_wallet_payload(waas_wallet_type wallet_type, long long wallet_index)
 {
     waas_use_wallet_params params;
-    waas_use_wallet_request request;
+    waas_wallet_use_wallet_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_use_wallet_params_init(&params);
-    waas_use_wallet_request_init(&request);
+    waas_wallet_use_wallet_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -220,13 +220,13 @@ static char *build_use_wallet_payload(waas_wallet_type wallet_type, long long wa
 static char *build_sign_message_payload(const char *wallet, const char *network, const char *message)
 {
     waas_sign_message_params params;
-    waas_sign_message_request request;
+    waas_wallet_sign_message_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_sign_message_params_init(&params);
-    waas_sign_message_request_init(&request);
+    waas_wallet_sign_message_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -267,13 +267,13 @@ static char *build_send_transaction_payload(
 )
 {
     waas_send_transaction_params params;
-    waas_send_transaction_request request;
+    waas_wallet_send_transaction_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
     waas_send_transaction_params_init(&params);
-    waas_send_transaction_request_init(&request);
+    waas_wallet_send_transaction_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 

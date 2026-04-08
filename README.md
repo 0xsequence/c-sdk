@@ -6,7 +6,7 @@
 
 ```shell
 arch -arm64 brew install cmake pkg-config
-brew install secp256k1 cjson curl mbedtls
+brew install secp256k1 json-c curl mbedtls
 ```
 
 `mbedtls` is required by the current CMake build. For standard macOS setup, install it with Homebrew.
@@ -29,6 +29,18 @@ vcpkg install mbedtls
 cmake -S . -B build
 cmake --build build
 ```
+
+#### Temporary generated-client patch
+
+The vendored generated WAAS C client currently includes a small local patch in
+[`lib/generated/waas/waas.gen.c:736`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L736)
+through
+[`lib/generated/waas/waas.gen.c:748`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L748)
+(`+3/-6`) to tolerate a missing `iss` field in the live `CompleteAuth`
+response.
+
+This is temporary and should be removed once the WAAS API contract is updated
+or fixed upstream.
 
 #### Run tests
 
@@ -56,7 +68,7 @@ ctest --test-dir build --output-on-failure
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456 --wallet-type Ethereum_EOA
+./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type Ethereum_EOA
 
 # Use wallet
 ./build/sequence-wallet use-wallet --wallet-type Ethereum_EOA

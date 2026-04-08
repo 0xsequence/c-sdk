@@ -8,10 +8,10 @@ include(CTest)
 
 find_package(MbedTLS CONFIG REQUIRED)
 find_package(CURL REQUIRED)
-find_package(cJSON CONFIG REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
+pkg_check_modules(JSON_C REQUIRED IMPORTED_TARGET json-c)
 link_directories(${SECP256K1_LIBRARY_DIRS})
 
 # ---- Library ----
@@ -61,7 +61,7 @@ target_link_libraries(sequence_c_sdk PUBLIC
         MbedTLS::mbedx509
         MbedTLS::tfpsacrypto
         CURL::libcurl
-        cjson
+        PkgConfig::JSON_C
         ${SECP256K1_LIBRARIES}
 )
 

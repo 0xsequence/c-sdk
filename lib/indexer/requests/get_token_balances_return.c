@@ -1,11 +1,11 @@
 #include "get_token_balances_return.h"
+#include <json-c/json.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cjson/cJSON.h>
 
-static char *dup_json_string(cJSON *item) {
-    return item && cJSON_IsString(item) ? strdup(item->valuestring) : NULL;
+static char *dup_json_string(struct json_object *item) {
+    return item && json_object_is_type(item, json_type_string) ? strdup(json_object_get_string(item)) : NULL;
 }
 
 void log_sequence_get_token_balances_return(
@@ -43,40 +43,56 @@ void log_sequence_get_token_balances_return(
 }
 
 SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const char *json) {
-    cJSON *root = cJSON_Parse(json);
+    struct json_object *root = json_tokener_parse(json);
     if (!root)
         return NULL;
 
     SequenceGetTokenBalancesReturn *res = calloc(1, sizeof(SequenceGetTokenBalancesReturn));
+    struct json_object *page = NULL;
+    struct json_object *balances = NULL;
 
-    cJSON *page = cJSON_GetObjectItem(root, "page");
-    if (page) {
-        res->page.page     = cJSON_GetObjectItem(page, "page")->valueint;
-        res->page.pageSize = cJSON_GetObjectItem(page, "pageSize")->valueint;
-        res->page.more     = cJSON_IsTrue(cJSON_GetObjectItem(page, "more"));
-    }
+    if (json_object_object_get_ex(root, "page", &page) && page && json_object_is_type(page, json_type_object)) {
+        struct json_object *page_number = NULL;
+        struct json_object *page_size = NULL;
+        struct json_object *more = NULL;
 
-    cJSON *balances = cJSON_GetObjectItem(root, "balances");
-    if (balances && cJSON_IsArray(balances)) {
-        res->balancesCount = cJSON_GetArraySize(balances);
-        res->balances = calloc(res->balancesCount, sizeof(SequenceBalance));
-
-        for (int i = 0; i < res->balancesCount; i++) {
-            cJSON *b = cJSON_GetArrayItem(balances, i);
-            SequenceBalance *dst = &res->balances[i];
-
-            dst->contractType    = dup_json_string(cJSON_GetObjectItem(b, "contractType"));
-            dst->contractAddress = dup_json_string(cJSON_GetObjectItem(b, "contractAddress"));
-            dst->accountAddress  = dup_json_string(cJSON_GetObjectItem(b, "accountAddress"));
-            dst->tokenID         = dup_json_string(cJSON_GetObjectItem(b, "tokenID"));
-            dst->balance         = dup_json_string(cJSON_GetObjectItem(b, "balance"));
-            dst->blockHash       = dup_json_string(cJSON_GetObjectItem(b, "blockHash"));
-            dst->blockNumber     = cJSON_GetObjectItem(b, "blockNumber")->valueint;
-            dst->chainId         = cJSON_GetObjectItem(b, "chainId")->valueint;
+        if (json_object_object_get_ex(page, "page", &page_number)) {
+            res->page.page = json_object_get_int(page_number);
+        }
+        if (json_object_object_get_ex(page, "pageSize", &page_size)) {
+            res->page.pageSize = json_object_get_int(page_size);
+        }
+        if (json_object_object_get_ex(page, "more", &more)) {
+            res->page.more = json_object_get_boolean(more);
         }
     }
 
-    cJSON_Delete(root);
+    if (json_object_object_get_ex(root, "balances", &balances) && balances &&
+        json_object_is_type(balances, json_type_array)) {
+        res->balancesCount = (int)json_object_array_length(balances);
+        res->balances = calloc(res->balancesCount, sizeof(SequenceBalance));
+
+        for (int i = 0; i < res->balancesCount; i++) {
+            struct json_object *b = json_object_array_get_idx(balances, i);
+            SequenceBalance *dst = &res->balances[i];
+            struct json_object *field = NULL;
+
+            if (!b || !json_object_is_type(b, json_type_object)) {
+                continue;
+            }
+
+            if (json_object_object_get_ex(b, "contractType", &field)) dst->contractType = dup_json_string(field);
+            if (json_object_object_get_ex(b, "contractAddress", &field)) dst->contractAddress = dup_json_string(field);
+            if (json_object_object_get_ex(b, "accountAddress", &field)) dst->accountAddress = dup_json_string(field);
+            if (json_object_object_get_ex(b, "tokenID", &field)) dst->tokenID = dup_json_string(field);
+            if (json_object_object_get_ex(b, "balance", &field)) dst->balance = dup_json_string(field);
+            if (json_object_object_get_ex(b, "blockHash", &field)) dst->blockHash = dup_json_string(field);
+            if (json_object_object_get_ex(b, "blockNumber", &field)) dst->blockNumber = json_object_get_int(field);
+            if (json_object_object_get_ex(b, "chainId", &field)) dst->chainId = json_object_get_int(field);
+        }
+    }
+
+    json_object_put(root);
 
     return res;
 }

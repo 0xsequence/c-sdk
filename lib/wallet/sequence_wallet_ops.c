@@ -10,8 +10,8 @@
 waas_wallet *sequence_use_wallet(const char* wallet_type)
 {
     waas_use_wallet_params params;
-    waas_use_wallet_request request;
-    waas_use_wallet_response response;
+    waas_wallet_use_wallet_request request;
+    waas_wallet_use_wallet_response response;
     sequence_wallet_rpc_context rpc;
     waas_wallet *wallet = NULL;
 
@@ -21,8 +21,8 @@ waas_wallet *sequence_use_wallet(const char* wallet_type)
     }
 
     waas_use_wallet_params_init(&params);
-    waas_use_wallet_request_init(&request);
-    waas_use_wallet_response_init(&response);
+    waas_wallet_use_wallet_request_init(&request);
+    waas_wallet_use_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
 
     if (sequence_parse_wallet_type(wallet_type, &params.wallet_type, &rpc.error) != 0)
@@ -58,7 +58,7 @@ cleanup:
     }
 
     sequence_wallet_rpc_context_free(&rpc);
-    waas_use_wallet_response_free(&response);
+    waas_wallet_use_wallet_response_free(&response);
     waas_use_wallet_params_free(&params);
     return wallet;
 }
@@ -71,8 +71,8 @@ waas_wallet *sequence_create_wallet()
 waas_wallet *sequence_create_wallet_of_type(const char* walletType)
 {
     waas_create_wallet_params params;
-    waas_create_wallet_request request;
-    waas_create_wallet_response response;
+    waas_wallet_create_wallet_request request;
+    waas_wallet_create_wallet_response response;
     sequence_wallet_rpc_context rpc;
     waas_wallet *wallet = NULL;
 
@@ -87,8 +87,8 @@ waas_wallet *sequence_create_wallet_of_type(const char* walletType)
     }
 
     waas_create_wallet_params_init(&params);
-    waas_create_wallet_request_init(&request);
-    waas_create_wallet_response_init(&response);
+    waas_wallet_create_wallet_request_init(&request);
+    waas_wallet_create_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
 
     if (sequence_parse_wallet_type(walletType, &params.wallet_type, &rpc.error) != 0)
@@ -123,18 +123,18 @@ cleanup:
     }
 
     sequence_wallet_rpc_context_free(&rpc);
-    waas_create_wallet_response_free(&response);
+    waas_wallet_create_wallet_response_free(&response);
     waas_create_wallet_params_free(&params);
     return wallet;
 }
 
-waas_sign_message_response *sequence_sign_message(
+waas_wallet_sign_message_response *sequence_sign_message(
     const char* chain_id,
     const char* message)
 {
     waas_sign_message_params params;
-    waas_sign_message_request request;
-    waas_sign_message_response *response = NULL;
+    waas_wallet_sign_message_request request;
+    waas_wallet_sign_message_response *response = NULL;
     sequence_wallet_rpc_context rpc;
     char *address = NULL;
     const char *network;
@@ -145,7 +145,7 @@ waas_sign_message_response *sequence_sign_message(
     }
 
     waas_sign_message_params_init(&params);
-    waas_sign_message_request_init(&request);
+    waas_wallet_sign_message_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
     response = calloc(1, sizeof(*response));
@@ -158,7 +158,7 @@ waas_sign_message_response *sequence_sign_message(
             NULL);
         goto cleanup;
     }
-    waas_sign_message_response_init(response);
+    waas_wallet_sign_message_response_init(response);
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
@@ -206,7 +206,7 @@ cleanup:
     {
         if (response)
         {
-            waas_sign_message_response_free(response);
+            waas_wallet_sign_message_response_free(response);
             free(response);
         }
         return NULL;
@@ -214,14 +214,14 @@ cleanup:
     return response;
 }
 
-waas_send_transaction_response *sequence_send_transaction(
+waas_wallet_send_transaction_response *sequence_send_transaction(
     const char* chain_id,
     const char* to,
     const char* value)
 {
     waas_send_transaction_params params;
-    waas_send_transaction_request request;
-    waas_send_transaction_response *response = NULL;
+    waas_wallet_send_transaction_request request;
+    waas_wallet_send_transaction_response *response = NULL;
     sequence_wallet_rpc_context rpc;
     char *address = NULL;
     const char *network;
@@ -232,7 +232,7 @@ waas_send_transaction_response *sequence_send_transaction(
     }
 
     waas_send_transaction_params_init(&params);
-    waas_send_transaction_request_init(&request);
+    waas_wallet_send_transaction_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
     response = calloc(1, sizeof(*response));
@@ -245,7 +245,7 @@ waas_send_transaction_response *sequence_send_transaction(
             NULL);
         goto cleanup;
     }
-    waas_send_transaction_response_init(response);
+    waas_wallet_send_transaction_response_init(response);
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
@@ -306,7 +306,7 @@ cleanup:
     {
         if (response)
         {
-            waas_send_transaction_response_free(response);
+            waas_wallet_send_transaction_response_free(response);
             free(response);
         }
         return NULL;

@@ -296,8 +296,6 @@ static int sequence_wallet_send_authorized_request(
         goto cleanup;
     }
 
-    printf(">> Request\n%s\n%s\n\n", prepared_request->body, auth_header);
-
     if (waas_wallet_client_send_prepared_request(
             client,
             prepared_request,
@@ -404,28 +402,28 @@ int sequence_wallet_rpc_execute(
 
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     commit_verifier,
-    waas_commit_verifier_request,
-    waas_commit_verifier_response)
+    waas_wallet_commit_verifier_request,
+    waas_wallet_commit_verifier_response)
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     complete_auth,
-    waas_complete_auth_request,
-    waas_complete_auth_response)
+    waas_wallet_complete_auth_request,
+    waas_wallet_complete_auth_response)
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     create_wallet,
-    waas_create_wallet_request,
-    waas_create_wallet_response)
+    waas_wallet_create_wallet_request,
+    waas_wallet_create_wallet_response)
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     use_wallet,
-    waas_use_wallet_request,
-    waas_use_wallet_response)
+    waas_wallet_use_wallet_request,
+    waas_wallet_use_wallet_response)
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     sign_message,
-    waas_sign_message_request,
-    waas_sign_message_response)
+    waas_wallet_sign_message_request,
+    waas_wallet_sign_message_response)
 SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
     send_transaction,
-    waas_send_transaction_request,
-    waas_send_transaction_response)
+    waas_wallet_send_transaction_request,
+    waas_wallet_send_transaction_response)
 
 #undef SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS
 
