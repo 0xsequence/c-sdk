@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <cjson/cJSON.h>
 
@@ -17,17 +18,26 @@ static char *build_is_valid_message_signature_json(
 )
 {
     cJSON *root = cJSON_CreateObject();
+    char *printed;
+    char *json;
 
     if (!root) {
         return NULL;
     }
 
-    cJSON_AddStringToObject(root, "chainId", chain_id);
-    cJSON_AddStringToObject(root, "walletAddress", wallet_address);
-    cJSON_AddStringToObject(root, "message", message);
-    cJSON_AddStringToObject(root, "signature", signature);
+    if (!cJSON_AddStringToObject(root, "chainId", chain_id ? chain_id : "") ||
+        !cJSON_AddStringToObject(root, "walletAddress", wallet_address ? wallet_address : "") ||
+        !cJSON_AddStringToObject(root, "message", message ? message : "") ||
+        !cJSON_AddStringToObject(root, "signature", signature ? signature : "")) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
-    char *json = cJSON_PrintUnformatted(root);
+    printed = cJSON_PrintUnformatted(root);
+    json = printed ? strdup(printed) : NULL;
+    if (printed) {
+        cJSON_free(printed);
+    }
     cJSON_Delete(root);
     return json;
 }

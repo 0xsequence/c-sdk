@@ -2,50 +2,152 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <xpc/xpc.h>
 
 #include "wallet/sequence_config.h"
-#include "wallet/sequence_wallet.h"
 #include "indexer/get_token_balances.h"
 #include "infrastructure/is_valid_message_signature.h"
 #include "storage/secure_storage.h"
 #include "wallet/sequence_connector.h"
 
-// Helper: print string safely
-void print_result(char *res) {
-    if (res) {
-        printf("%s\n", res);
-        free(res);
-    } else {
-        printf("null\n");
+static const char *find_arg_value(int argc, char **argv, const char *name)
+{
+    for (int i = 2; i + 1 < argc; ++i) {
+        if (strcmp(argv[i], name) == 0) {
+            return argv[i + 1];
+        }
     }
+    return NULL;
 }
 
-void print_header(char *title) {
+static const char *find_arg_value2(
+    int argc,
+    char **argv,
+    const char *first_name,
+    const char *second_name
+)
+{
+    const char *value = find_arg_value(argc, argv, first_name);
+    return value ? value : find_arg_value(argc, argv, second_name);
+}
+
+static bool has_arg(int argc, char **argv, const char *name)
+{
+    for (int i = 2; i < argc; ++i) {
+        if (strcmp(argv[i], name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void init_sequence_config_from_storage(void)
+{
+    char *access_key = NULL;
+    secure_store_read_string("access-key", &access_key);
+    sequence_config_init(access_key);
+}
+
+static void free_wallet_response(waas_wallet *wallet)
+{
+    if (!wallet) {
+        return;
+    }
+
+    waas_wallet_free(wallet);
+    free(wallet);
+}
+
+static void free_complete_auth_response(waas_wallet_complete_auth_response *response)
+{
+    if (!response) {
+        return;
+    }
+
+    waas_wallet_complete_auth_response_free(response);
+    free(response);
+}
+
+static void free_sign_message_response(waas_wallet_sign_message_response *response)
+{
+    if (!response) {
+        return;
+    }
+
+    waas_wallet_sign_message_response_free(response);
+    free(response);
+}
+
+static void free_send_transaction_response(waas_wallet_send_transaction_response *response)
+{
+    if (!response) {
+        return;
+    }
+
+    waas_wallet_send_transaction_response_free(response);
+    free(response);
+}
+
+static void print_header(const char *title) {
     printf("\n##### %s #####\n\n", title);
 }
 
-void print_use_case(char *title, char *command) {
+static void print_use_case(const char *title, const char *command) {
     printf("\n");
     printf("%s\n", title);
     printf(">> %s\n", command);
 }
 
-void print_first_steps() {
+static void print_first_steps(void) {
     printf("\nLet's get things rolling!\n");
     print_use_case("Get Token Balances", "sequence-wallet get-token-balances --chain-id <chain-id> --contract-address <address> --wallet-address <address> --include-metadata");
     print_use_case("Sign In with Email", "sequence-wallet sign-in-with-email --email <email>");
     print_use_case("Verify Signature", "sequence-wallet verify-signature --chain-id <chain-id> --wallet-address <address> --message <message> --signature <signature>");
 }
 
-void print_use_cases() {
+static void print_use_cases(void) {
     printf("\nLet’s try out some features!\n");
     print_use_case("Sign Message", "sequence-wallet sign-message --chain-id <chain-id> --message <message>");
     print_use_case("Send Transaction", "sequence-wallet send-transaction --chain-id <chain-id> --to <address> --value <value>");
     print_use_case("Verify Signature", "sequence-wallet verify-signature --chain-id <chain-id> --wallet-address <address> --message <message> --signature <signature>");
 }
 
-void print_help(const char *prog) {
+static void print_wallet_and_use_cases(const waas_wallet *wallet)
+{
+    printf("Sequence Wallet Address: %s\n", wallet->address);
+    print_use_cases();
+}
+
+static waas_wallet *select_wallet_from_auth(
+    const waas_wallet_complete_auth_response *response,
+    const char *wallet_type
+)
+{
+    waas_wallet *wallet = NULL;
+
+    if (!response || !wallet_type) {
+        return NULL;
+    }
+
+    if (!response->complete_auth_response || response->complete_auth_response->wallets.count == 0) {
+        return sequence_create_wallet_of_type(wallet_type);
+    }
+
+    if (response->complete_auth_response->wallets.items) {
+        for (size_t i = 0; i < response->complete_auth_response->wallets.count; ++i) {
+            if (response->complete_auth_response->wallets.items[i] &&
+                strcmp(
+                    waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
+                    wallet_type) == 0) {
+                wallet = sequence_use_wallet(wallet_type);
+                break;
+            }
+        }
+    }
+
+    return wallet ? wallet : sequence_create_wallet_of_type(wallet_type);
+}
+
+static void print_help(const char *prog) {
     printf(
         "Sequence Wallet CLI\n"
        "\n"
@@ -70,7 +172,6 @@ void print_help(const char *prog) {
        "\n"
         "  confirm-email-sign-in\n"
         "      Confirm email sign-in\n"
-        "      --email <email>\n"
         "      --code <code>\n"
         "      --wallet-type <Ethereum_SequenceV3 | Ethereum_EOA> (optional)\n"
         "\n"
@@ -107,17 +208,17 @@ void print_help(const char *prog) {
 }
 
 int main(int argc, char **argv) {
+    const char *cmd = NULL;
+
     if (argc < 2) {
         printf("Usage: sequence-wallet <command> [options]\n");
         return 1;
     }
 
-    const char *cmd = argv[1];
+    cmd = argv[1];
 
     if (strcmp(cmd, "init") != 0 && strcmp(argv[1], "--help") != 0 && strcmp(argv[1], "-h") != 0) {
-        char *access_key = NULL;
-        secure_store_read_string("access-key", &access_key);
-        sequence_config_init(access_key);
+        init_sequence_config_from_storage();
     }
 
     if (strcmp(argv[1], "--help") == 0 ||
@@ -130,12 +231,7 @@ int main(int argc, char **argv) {
 
         const char *access_key = NULL;
 
-        // Parse CLI args
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--access-key") == 0 && i + 1 < argc) {
-                access_key = argv[++i];
-            }
-        }
+        access_key = find_arg_value(argc, argv, "--access-key");
 
         if (!access_key) {
             fprintf(stderr, "Missing --access-key\n");
@@ -155,12 +251,10 @@ int main(int argc, char **argv) {
         const char *wallet_address = NULL;
         bool include_metadata = false;
 
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
-            else if (strcmp(argv[i], "--contract-address") == 0 && i + 1 < argc) contract_address = argv[++i];
-            else if (strcmp(argv[i], "--wallet-address") == 0 && i + 1 < argc) wallet_address = argv[++i];
-            else if (strcmp(argv[i], "--include-metadata") == 0) include_metadata = true;
-        }
+        chain_id = find_arg_value(argc, argv, "--chain-id");
+        contract_address = find_arg_value(argc, argv, "--contract-address");
+        wallet_address = find_arg_value(argc, argv, "--wallet-address");
+        include_metadata = has_arg(argc, argv, "--include-metadata");
 
         if (!chain_id || !contract_address || !wallet_address) {
             fprintf(stderr, "Missing required args for get-token-balances\n");
@@ -181,10 +275,7 @@ int main(int argc, char **argv) {
     } else if (strcmp(cmd, "sign-in-with-email") == 0) {
         print_header("Sign In with Email");
 
-        const char *email = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
-        }
+        const char *email = find_arg_value(argc, argv, "--email");
         if (!email) {
             fprintf(stderr, "Missing --email\n");
             return 1;
@@ -192,78 +283,56 @@ int main(int argc, char **argv) {
 
         if (sequence_sign_in_with_email(email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
-            print_use_case("Confirm Email Sign In", "sequence-wallet confirm-email-sign-in --email <email> --code <code>");
+            print_use_case("Confirm Email Sign In", "sequence-wallet confirm-email-sign-in --code <code>");
         }
     } else if (strcmp(cmd, "confirm-email-sign-in") == 0) {
         print_header("Confirming Email Sign In");
 
-        const char *email = NULL;
-        const char *code = NULL;
-        const char *wallet_type = NULL;
-
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--email") == 0 && i + 1 < argc) email = argv[++i];
-            else if (strcmp(argv[i], "--code") == 0 && i + 1 < argc) code = argv[++i];
-            else if (strcmp(argv[i], "--wallet-type") == 0) wallet_type = argv[++i];
-        }
-        if (!email || !code) {
-            fprintf(stderr, "Missing --email or --code\n");
+        const char *code = find_arg_value(argc, argv, "--code");
+        const char *wallet_type = find_arg_value(argc, argv, "--wallet-type");
+        if (!code) {
+            fprintf(stderr, "Missing --code\n");
             return 1;
         }
 
         sequence_restore_session();
-        sequence_complete_auth_return *res = sequence_confirm_email_sign_in(email, code);
+        waas_wallet_complete_auth_response *res = sequence_confirm_email_sign_in(code);
 
         if (!res) {
             fprintf(stderr, "sequence_confirm_email_sign_in failed\n");
             return 1;
         }
 
-        sequence_wallet *wallet = NULL;
-
         if (wallet_type) {
-            /* No wallets → create one */
-            if (res->wallet_count == 0) {
-                wallet = sequence_create_wallet_of_type(wallet_type);
-            }
-            else if (res->wallets) {
-
-                /* Prefer Ethereum_SequenceV3 if available */
-                for (size_t i = 0; i < res->wallet_count; ++i) {
-                    if (strcmp(res->wallets[i].type, wallet_type) == 0) {
-                        wallet = sequence_use_wallet(wallet_type);
-                        break;
-                    }
-                }
-            }
-
-            /* If no wallet was selected, fallback to create the specified wallet type */
-            if (!wallet) {
-                wallet = sequence_create_wallet_of_type(wallet_type);
-            }
+            waas_wallet *wallet = select_wallet_from_auth(res, wallet_type);
 
             if (wallet) {
-                printf("Sequence Wallet Address: %s\n", wallet->address);
-                print_use_cases();
+                print_wallet_and_use_cases(wallet);
+                free_wallet_response(wallet);
             } else {
                 fprintf(stderr, "Failed to initialize wallet\n");
             }
 
         } else {
 
-            if (res->wallet_count == 0) {
+            if (!res->complete_auth_response || res->complete_auth_response->wallets.count == 0) {
                 printf("No wallets available, please create a new wallet.\n");
                 print_use_case("Create Wallet", "sequence-wallet create-wallet");
 
-                sequence_complete_auth_return_free(res);
+                free_complete_auth_response(res);
                 return 0;
             }
 
             printf("Please select one of the existing wallet types:\n");
 
-            if (res->wallets) {
-                for (size_t i = 0; i < res->wallet_count; ++i) {
-                    printf("Wallet Type %zu: %s\n", i, res->wallets[i].type);
+            if (res->complete_auth_response && res->complete_auth_response->wallets.items) {
+                for (size_t i = 0; i < res->complete_auth_response->wallets.count; ++i) {
+                    if (res->complete_auth_response->wallets.items[i]) {
+                        printf(
+                            "Wallet Type %zu: %s\n",
+                            i,
+                            waas_wallet_type_to_string(res->complete_auth_response->wallets.items[i]->type));
+                    }
                 }
             }
 
@@ -274,24 +343,21 @@ int main(int argc, char **argv) {
             );
         }
 
-        sequence_complete_auth_return_free(res);
+        free_complete_auth_response(res);
 
     } else if (strcmp(cmd, "create-wallet") == 0) {
         print_header("Create Wallet");
 
         sequence_restore_session();
 
-        const char *walletType = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--wallet-type") == 0 && i + 1 < argc) walletType = argv[++i];
-        }
+        const char *walletType = find_arg_value(argc, argv, "--wallet-type");
 
         // Use sequence v3 wallet type by default
         if (!walletType) {
             walletType = "Ethereum_SequenceV3";
         }
 
-        const sequence_wallet *wallet = walletType
+        waas_wallet *wallet = walletType
             ? sequence_create_wallet_of_type(walletType)
             : sequence_create_wallet();
 
@@ -300,30 +366,25 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        printf("Sequence Wallet Address: %s\n", wallet->address);
-
-        print_use_cases();
+        print_wallet_and_use_cases(wallet);
+        free_wallet_response(wallet);
 
     } else if (strcmp(cmd, "use-wallet") == 0) {
         print_header("Use Wallet");
 
-        const char *walletType = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--wallet-type") == 0 && i + 1 < argc) walletType = argv[++i];
-        }
+        const char *walletType = find_arg_value(argc, argv, "--wallet-type");
         if (!walletType) { fprintf(stderr, "Missing --wallet-type\n"); return 1; }
 
         sequence_restore_session();
-        const sequence_wallet *wallet = sequence_use_wallet(walletType);
+        waas_wallet *wallet = sequence_use_wallet(walletType);
 
         if (!wallet) {
             fprintf(stderr, "Failed to use wallet of type '%s'\n", walletType);
             return 1;
         }
 
-        printf("Sequence Wallet Address: %s\n", wallet->address);
-
-        print_use_cases();
+        print_wallet_and_use_cases(wallet);
+        free_wallet_response(wallet);
 
     } else if (strcmp(cmd, "verify-signature") == 0 || strcmp(cmd, "verify_signature") == 0) {
         print_header("Verify Signature");
@@ -332,12 +393,10 @@ int main(int argc, char **argv) {
         const char *wallet_address = NULL;
         const char *message = NULL;
         const char *signature = NULL;
-        for (int i = 2; i < argc; i++) {
-            if ((strcmp(argv[i], "--chain-id") == 0 || strcmp(argv[i], "--chain_id") == 0) && i + 1 < argc) chain_id = argv[++i];
-            else if ((strcmp(argv[i], "--wallet-address") == 0 || strcmp(argv[i], "--wallet_address") == 0) && i + 1 < argc) wallet_address = argv[++i];
-            else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
-            else if (strcmp(argv[i], "--signature") == 0 && i + 1 < argc) signature = argv[++i];
-        }
+        chain_id = find_arg_value2(argc, argv, "--chain-id", "--chain_id");
+        wallet_address = find_arg_value2(argc, argv, "--wallet-address", "--wallet_address");
+        message = find_arg_value(argc, argv, "--message");
+        signature = find_arg_value(argc, argv, "--signature");
         if (!chain_id || !wallet_address || !message || !signature) {
             fprintf(stderr, "Missing --chain-id, --wallet-address, --message or --signature\n");
             return 1;
@@ -355,10 +414,8 @@ int main(int argc, char **argv) {
 
         const char *chain_id = NULL;
         const char *message = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
-            else if (strcmp(argv[i], "--message") == 0 && i + 1 < argc) message = argv[++i];
-        }
+        chain_id = find_arg_value(argc, argv, "--chain-id");
+        message = find_arg_value(argc, argv, "--message");
 
         if (!chain_id || !message) {
             fprintf(stderr, "Missing --chain-id or --message\n");
@@ -366,8 +423,11 @@ int main(int argc, char **argv) {
         }
 
         sequence_restore_session();
-        char *signature = sequence_sign_message(chain_id, message);
-        printf("Signature: %s\n", signature);
+        waas_wallet_sign_message_response *signature = sequence_sign_message(chain_id, message);
+        printf(
+            "Signature: %s\n",
+            (signature && signature->sign_message_response) ? signature->sign_message_response->signature : "(null)");
+        free_sign_message_response(signature);
 
     } else if (strcmp(cmd, "send-transaction") == 0) {
         print_header("Send Transaction");
@@ -375,19 +435,20 @@ int main(int argc, char **argv) {
         const char *chain_id = NULL;
         const char *to = NULL;
         const char *value = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--chain-id") == 0 && i + 1 < argc) chain_id = argv[++i];
-            else if (strcmp(argv[i], "--to") == 0 && i + 1 < argc) to = argv[++i];
-            else if (strcmp(argv[i], "--value") == 0 && i + 1 < argc) value = argv[++i];
-        }
+        chain_id = find_arg_value(argc, argv, "--chain-id");
+        to = find_arg_value(argc, argv, "--to");
+        value = find_arg_value(argc, argv, "--value");
         if (!chain_id || !to || !value) {
             fprintf(stderr, "Missing --chain-id, --to or --value\n");
             return 1;
         }
 
         sequence_restore_session();
-        char *txHash = sequence_send_transaction(chain_id, to, value);
-        printf("Transaction Hash: %s\n", txHash);
+        waas_wallet_send_transaction_response *tx = sequence_send_transaction(chain_id, to, value);
+        printf(
+            "Transaction Hash: %s\n",
+            (tx && tx->send_transaction_response) ? tx->send_transaction_response->tx_hash : "(null)");
+        free_send_transaction_response(tx);
 
     } else {
         fprintf(stderr, "Unknown command: %s\n", cmd);

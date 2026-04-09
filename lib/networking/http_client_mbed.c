@@ -1,12 +1,13 @@
 #if MBED_TLS
 
 #include "http_client.h"
+#include "http_client_common.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
 
-#include "../embedded-wallet/sequence_config.h"
+#include "../wallet/sequence_config.h"
 
 /* Mbed TLS */
 #include "mbedtls/net_sockets.h"
@@ -17,42 +18,6 @@
 #include "mbedtls/error.h"
 
 /* ================= helpers ================= */
-
-static char* dup_cstr(const char *s) {
-    if (!s) return NULL;
-    size_t n = strlen(s);
-    char *p = (char*)malloc(n + 1);
-    if (!p) return NULL;
-    memcpy(p, s, n + 1);
-    return p;
-}
-
-static char* join_url(const char *base, const char *path) {
-    if (!base) return NULL;
-    if (!path) path = "";
-
-    size_t bl = strlen(base);
-    size_t pl = strlen(path);
-
-    int base_has_slash = (bl > 0 && base[bl - 1] == '/');
-    int path_has_slash = (pl > 0 && path[0] == '/');
-
-    size_t need = bl + pl + 3; /* conservative */
-    char *out = (char*)malloc(need);
-    if (!out) return NULL;
-
-    if (bl == 0) { snprintf(out, need, "%s", path); return out; }
-    if (pl == 0) { snprintf(out, need, "%s", base); return out; }
-
-    if (base_has_slash && path_has_slash) {
-        snprintf(out, need, "%.*s%s", (int)(bl - 1), base, path);
-    } else if (!base_has_slash && !path_has_slash) {
-        snprintf(out, need, "%s/%s", base, path);
-    } else {
-        snprintf(out, need, "%s%s", base, path);
-    }
-    return out;
-}
 
 typedef struct HeaderNode {
     char *line; /* "Key: value" */
@@ -87,7 +52,7 @@ static int buf_append(Buf *b, const void *data, size_t n) {
 static HttpResponse make_error(const char *msg) {
     HttpResponse r;
     memset(&r, 0, sizeof(r));
-    r.error = dup_cstr(msg ? msg : "Unknown error");
+    r.error = http_dup_cstr(msg ? msg : "Unknown error");
     return r;
 }
 
@@ -276,7 +241,7 @@ struct HttpClient {
 HttpClient* http_client_create(const char *base_url) {
     HttpClient *c = (HttpClient*)calloc(1, sizeof(HttpClient));
     if (!c) return NULL;
-    c->base_url = dup_cstr(base_url ? base_url : "");
+    c->base_url = http_dup_cstr(base_url ? base_url : "");
     if (!c->base_url) { free(c); return NULL; }
     c->insecure_tls = 0;
     return c;
@@ -295,7 +260,7 @@ void http_client_destroy(HttpClient *c) {
 int http_client_set_bearer_token(HttpClient *c, const char *token) {
     if (!c) return 0;
     free(c->bearer_token);
-    c->bearer_token = token ? dup_cstr(token) : NULL;
+    c->bearer_token = token ? http_dup_cstr(token) : NULL;
     return (token == NULL) || (c->bearer_token != NULL);
 }
 
@@ -303,7 +268,7 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
     if (!c || !header_line) return 0;
     HeaderNode *n = (HeaderNode*)calloc(1, sizeof(HeaderNode));
     if (!n) return 0;
-    n->line = dup_cstr(header_line);
+    n->line = http_dup_cstr(header_line);
     if (!n->line) { free(n); return 0; }
     n->next = NULL;
 
@@ -318,12 +283,12 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
 }
 
 int http_add_sequence_access_key(HttpClient *c) {
-    if (!c || !sequence_config.access_key) return 0;
-    const char *key = sequence_config.access_key;
-    size_t len = strlen("X-Access-Key: ") + strlen(key) + 1;
-    char *header = (char*)malloc(len);
+    char *header;
+
+    if (!c || !sequence_config.access_key || !sequence_config.access_key[0]) return 0;
+
+    header = http_sequence_access_key_header();
     if (!header) return -1;
-    snprintf(header, len, "X-Access-Key: %s", key);
     int ok = http_client_add_header(c, header);
     free(header);
     return ok;
@@ -332,7 +297,7 @@ int http_add_sequence_access_key(HttpClient *c) {
 int http_client_set_ca_cert_pem(HttpClient *c, const char *ca_pem) {
     if (!c) return 0;
     free(c->ca_cert_pem);
-    c->ca_cert_pem = ca_pem ? dup_cstr(ca_pem) : NULL;
+    c->ca_cert_pem = ca_pem ? http_dup_cstr(ca_pem) : NULL;
     return (ca_pem == NULL) || (c->ca_cert_pem != NULL);
 }
 
@@ -422,7 +387,7 @@ HttpResponse http_client_post_json(HttpClient *c,
 {
     if (!c) return make_error("HttpClient is NULL");
 
-    char *url = join_url(c->base_url, path);
+    char *url = http_join_url(c->base_url, path);
     if (!url) return make_error("Failed to build URL");
 
     ParsedUrl pu;
@@ -609,7 +574,7 @@ tls_done:
             resp = make_error("Failed to decode chunked body");
             goto done;
         }
-        resp.body = decoded.data ? decoded.data : dup_cstr("");
+        resp.body = decoded.data ? decoded.data : http_dup_cstr("");
         resp.body_len = decoded.len;
     } else if (header_get_value(headers.data, "Content-Length", cl, sizeof(cl))) {
         size_t want = (size_t)strtoul(cl, NULL, 10);

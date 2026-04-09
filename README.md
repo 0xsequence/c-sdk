@@ -30,6 +30,15 @@ cmake -S . -B build
 cmake --build build
 ```
 
+#### Temporary generated-client patch
+
+The vendored generated WAAS C client currently includes a small local patch in
+[`lib/generated/waas/waas.gen.c`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c)
+to tolerate a missing `iss` field in the live `CompleteAuth` response.
+
+This is temporary and should be removed once the WAAS API contract is updated
+or fixed upstream.
+
 #### Run tests
 
 ```shell
@@ -56,7 +65,7 @@ ctest --test-dir build --output-on-failure
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --email andygruening@gmail.com --code 123456 --wallet-type Ethereum_EOA
+./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type Ethereum_EOA
 
 # Use wallet
 ./build/sequence-wallet use-wallet --wallet-type Ethereum_EOA

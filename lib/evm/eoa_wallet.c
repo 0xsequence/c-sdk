@@ -38,7 +38,7 @@ int eoa_wallet_initialize(eoa_wallet_t *wallet) {
     //secp256k1_context_destroy(wallet->ctx);
 
     if (!ok) {
-        eoa_wallet_t(wallet);
+        eoa_wallet_destroy(wallet);
         return 0;
     }
 
