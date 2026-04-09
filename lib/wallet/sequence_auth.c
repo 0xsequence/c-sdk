@@ -50,13 +50,13 @@ int sequence_restore_session()
 
 int sequence_sign_in_with_email(const char* email)
 {
-    waas_commit_verifier_params params;
+    waas_commit_verifier_request params;
     waas_wallet_commit_verifier_request request;
     waas_wallet_commit_verifier_response response;
     sequence_wallet_rpc_context rpc;
     int status = -1;
 
-    waas_commit_verifier_params_init(&params);
+    waas_commit_verifier_request_init(&params);
     waas_wallet_commit_verifier_request_init(&request);
     waas_wallet_commit_verifier_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
@@ -92,7 +92,7 @@ int sequence_sign_in_with_email(const char* email)
             NULL);
         goto cleanup;
     }
-    request.params = &params;
+    request.commit_verifier_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -104,8 +104,18 @@ int sequence_sign_in_with_email(const char* email)
         goto cleanup;
     }
 
-    cur_challenge = waas_strdup(response.challenge);
-    cur_verifier = waas_strdup(response.verifier);
+    if (!response.commit_verifier_response)
+    {
+        sequence_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "CommitVerifier response missing payload",
+            NULL);
+        goto cleanup;
+    }
+
+    cur_challenge = waas_strdup(response.commit_verifier_response->challenge);
+    cur_verifier = waas_strdup(response.commit_verifier_response->verifier);
     if (!cur_challenge || !cur_verifier)
     {
         sequence_set_waas_error(
@@ -144,14 +154,14 @@ cleanup:
 
     sequence_wallet_rpc_context_free(&rpc);
     waas_wallet_commit_verifier_response_free(&response);
-    waas_commit_verifier_params_free(&params);
+    waas_commit_verifier_request_free(&params);
     return status;
 }
 
 waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     const char* code)
 {
-    waas_complete_auth_params params;
+    waas_complete_auth_request params;
     waas_wallet_complete_auth_request request;
     waas_wallet_complete_auth_response *response = NULL;
     sequence_wallet_rpc_context rpc;
@@ -177,7 +187,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
         return NULL;
     }
 
-    waas_complete_auth_params_init(&params);
+    waas_complete_auth_request_init(&params);
     waas_wallet_complete_auth_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
@@ -223,7 +233,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
             NULL);
         goto cleanup;
     }
-    request.params = &params;
+    request.complete_auth_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -244,7 +254,7 @@ cleanup:
     sequence_wallet_rpc_context_free(&rpc);
     free(hashed_answer_hex);
     free(pre_hash_answer);
-    waas_complete_auth_params_free(&params);
+    waas_complete_auth_request_free(&params);
     if (rpc.error.message)
     {
         if (response)

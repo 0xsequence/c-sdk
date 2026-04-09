@@ -57,7 +57,7 @@ static void *sequence_finish_rpc_response(
 
 waas_wallet *sequence_use_wallet(const char* wallet_type)
 {
-    waas_use_wallet_params params;
+    waas_use_wallet_request params;
     waas_wallet_use_wallet_request request;
     waas_wallet_use_wallet_response response;
     sequence_wallet_rpc_context rpc;
@@ -68,7 +68,7 @@ waas_wallet *sequence_use_wallet(const char* wallet_type)
         return NULL;
     }
 
-    waas_use_wallet_params_init(&params);
+    waas_use_wallet_request_init(&params);
     waas_wallet_use_wallet_request_init(&request);
     waas_wallet_use_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
@@ -78,7 +78,7 @@ waas_wallet *sequence_use_wallet(const char* wallet_type)
         goto cleanup;
     }
     params.wallet_index = 0;
-    request.params = &params;
+    request.use_wallet_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -93,7 +93,7 @@ waas_wallet *sequence_use_wallet(const char* wallet_type)
     if (sequence_finalize_wallet_response(
             &rpc,
             &wallet,
-            &response.wallet,
+            response.use_wallet_response ? &response.use_wallet_response->wallet : NULL,
             "failed to extract UseWallet response") != 0)
     {
         goto cleanup;
@@ -107,7 +107,7 @@ cleanup:
 
     sequence_wallet_rpc_context_free(&rpc);
     waas_wallet_use_wallet_response_free(&response);
-    waas_use_wallet_params_free(&params);
+    waas_use_wallet_request_free(&params);
     return wallet;
 }
 
@@ -118,7 +118,7 @@ waas_wallet *sequence_create_wallet()
 
 waas_wallet *sequence_create_wallet_of_type(const char* walletType)
 {
-    waas_create_wallet_params params;
+    waas_create_wallet_request params;
     waas_wallet_create_wallet_request request;
     waas_wallet_create_wallet_response response;
     sequence_wallet_rpc_context rpc;
@@ -134,7 +134,7 @@ waas_wallet *sequence_create_wallet_of_type(const char* walletType)
         return NULL;
     }
 
-    waas_create_wallet_params_init(&params);
+    waas_create_wallet_request_init(&params);
     waas_wallet_create_wallet_request_init(&request);
     waas_wallet_create_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
@@ -143,7 +143,7 @@ waas_wallet *sequence_create_wallet_of_type(const char* walletType)
     {
         goto cleanup;
     }
-    request.params = &params;
+    request.create_wallet_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -158,7 +158,7 @@ waas_wallet *sequence_create_wallet_of_type(const char* walletType)
     if (sequence_finalize_wallet_response(
             &rpc,
             &wallet,
-            &response.wallet,
+            response.create_wallet_response ? &response.create_wallet_response->wallet : NULL,
             "failed to extract CreateWallet response") != 0)
     {
         goto cleanup;
@@ -172,7 +172,7 @@ cleanup:
 
     sequence_wallet_rpc_context_free(&rpc);
     waas_wallet_create_wallet_response_free(&response);
-    waas_create_wallet_params_free(&params);
+    waas_create_wallet_request_free(&params);
     return wallet;
 }
 
@@ -180,7 +180,7 @@ waas_wallet_sign_message_response *sequence_sign_message(
     const char* chain_id,
     const char* message)
 {
-    waas_sign_message_params params;
+    waas_sign_message_request params;
     waas_wallet_sign_message_request request;
     waas_wallet_sign_message_response *response = NULL;
     sequence_wallet_rpc_context rpc;
@@ -192,7 +192,7 @@ waas_wallet_sign_message_response *sequence_sign_message(
         return NULL;
     }
 
-    waas_sign_message_params_init(&params);
+    waas_sign_message_request_init(&params);
     waas_wallet_sign_message_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
@@ -227,7 +227,7 @@ waas_wallet_sign_message_response *sequence_sign_message(
             NULL);
         goto cleanup;
     }
-    request.params = &params;
+    request.sign_message_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -242,7 +242,7 @@ waas_wallet_sign_message_response *sequence_sign_message(
 cleanup:
     sequence_wallet_rpc_context_free(&rpc);
     free(address);
-    waas_sign_message_params_free(&params);
+    waas_sign_message_request_free(&params);
     return sequence_finish_rpc_response(
         response,
         (void (*)(void *))waas_wallet_sign_message_response_free,
@@ -255,7 +255,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     const char* to,
     const char* value)
 {
-    waas_send_transaction_params params;
+    waas_send_transaction_request params;
     waas_wallet_send_transaction_request request;
     waas_wallet_send_transaction_response *response = NULL;
     sequence_wallet_rpc_context rpc;
@@ -267,7 +267,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
         return NULL;
     }
 
-    waas_send_transaction_params_init(&params);
+    waas_send_transaction_request_init(&params);
     waas_wallet_send_transaction_request_init(&request);
     sequence_wallet_rpc_context_init(&rpc);
 
@@ -305,7 +305,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
             NULL);
         goto cleanup;
     }
-    request.params = &params;
+    request.send_transaction_request = &params;
 
     if (sequence_wallet_rpc_execute(
             &rpc,
@@ -317,7 +317,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
         goto cleanup;
     }
 
-    if (!response->response || !response->response->tx_hash)
+    if (!response->send_transaction_response || !response->send_transaction_response->tx_hash)
     {
         sequence_set_waas_error(
             &rpc.error,
@@ -330,7 +330,7 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
 cleanup:
     sequence_wallet_rpc_context_free(&rpc);
     free(address);
-    waas_send_transaction_params_free(&params);
+    waas_send_transaction_request_free(&params);
     return sequence_finish_rpc_response(
         response,
         (void (*)(void *))waas_wallet_send_transaction_response_free,

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <json-c/json.h>
+#include <cjson/cJSON.h>
 
 #include "../networking/http_client.h"
 #include "../utils/globals.h"
@@ -17,20 +17,28 @@ static char *build_is_valid_message_signature_json(
     const char *signature
 )
 {
-    struct json_object *root = json_object_new_object();
+    cJSON *root = cJSON_CreateObject();
+    char *printed;
+    char *json;
 
     if (!root) {
         return NULL;
     }
 
-    json_object_object_add(root, "chainId", json_object_new_string(chain_id ? chain_id : ""));
-    json_object_object_add(root, "walletAddress", json_object_new_string(wallet_address ? wallet_address : ""));
-    json_object_object_add(root, "message", json_object_new_string(message ? message : ""));
-    json_object_object_add(root, "signature", json_object_new_string(signature ? signature : ""));
+    if (!cJSON_AddStringToObject(root, "chainId", chain_id ? chain_id : "") ||
+        !cJSON_AddStringToObject(root, "walletAddress", wallet_address ? wallet_address : "") ||
+        !cJSON_AddStringToObject(root, "message", message ? message : "") ||
+        !cJSON_AddStringToObject(root, "signature", signature ? signature : "")) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
-    const char *json_str = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PLAIN);
-    char *json = json_str ? strdup(json_str) : NULL;
-    json_object_put(root);
+    printed = cJSON_PrintUnformatted(root);
+    json = printed ? strdup(printed) : NULL;
+    if (printed) {
+        cJSON_free(printed);
+    }
+    cJSON_Delete(root);
     return json;
 }
 
@@ -39,24 +47,24 @@ static void parse_is_valid_message_signature_response(
     const char *json
 )
 {
-    struct json_object *root;
-    struct json_object *is_valid = NULL;
+    cJSON *root;
+    cJSON *is_valid;
 
     if (!out || !json) {
         return;
     }
 
-    root = json_tokener_parse(json);
+    root = cJSON_Parse(json);
     if (!root) {
         return;
     }
 
-    if (json_object_object_get_ex(root, "isValid", &is_valid) &&
-        is_valid && json_object_is_type(is_valid, json_type_boolean)) {
-        out->is_valid = json_object_get_boolean(is_valid);
+    is_valid = cJSON_GetObjectItemCaseSensitive(root, "isValid");
+    if (cJSON_IsBool(is_valid)) {
+        out->is_valid = cJSON_IsTrue(is_valid);
     }
 
-    json_object_put(root);
+    cJSON_Delete(root);
 }
 
 SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(

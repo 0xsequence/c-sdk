@@ -11,7 +11,7 @@ find_package(CURL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
-pkg_check_modules(JSON_C REQUIRED IMPORTED_TARGET json-c)
+pkg_check_modules(CJSON REQUIRED IMPORTED_TARGET libcjson)
 link_directories(${SECP256K1_LIBRARY_DIRS})
 
 # ---- Library ----
@@ -51,10 +51,12 @@ target_include_directories(sequence_c_sdk
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
         $<INSTALL_INTERFACE:include>
         ${SECP256K1_INCLUDE_DIRS}
+        ${CJSON_INCLUDE_DIRS}
 )
 
 target_compile_options(sequence_c_sdk PUBLIC
         ${SECP256K1_CFLAGS_OTHER}
+        ${CJSON_CFLAGS_OTHER}
 )
 
 target_link_libraries(sequence_c_sdk PUBLIC
@@ -62,7 +64,7 @@ target_link_libraries(sequence_c_sdk PUBLIC
         MbedTLS::mbedx509
         MbedTLS::tfpsacrypto
         CURL::libcurl
-        PkgConfig::JSON_C
+        PkgConfig::CJSON
         ${SECP256K1_LIBRARIES}
 )
 

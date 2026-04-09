@@ -1,11 +1,12 @@
 #include "get_token_balances_return.h"
-#include <json-c/json.h>
+#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static char *dup_json_string(struct json_object *item) {
-    return item && json_object_is_type(item, json_type_string) ? strdup(json_object_get_string(item)) : NULL;
+static char *dup_json_string(cJSON *item) {
+    const char *value = cJSON_GetStringValue(item);
+    return value ? strdup(value) : NULL;
 }
 
 void log_sequence_get_token_balances_return(
@@ -43,56 +44,74 @@ void log_sequence_get_token_balances_return(
 }
 
 SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const char *json) {
-    struct json_object *root = json_tokener_parse(json);
-    if (!root)
+    cJSON *root = cJSON_Parse(json);
+    if (!root) {
         return NULL;
+    }
 
     SequenceGetTokenBalancesReturn *res = calloc(1, sizeof(SequenceGetTokenBalancesReturn));
-    struct json_object *page = NULL;
-    struct json_object *balances = NULL;
+    cJSON *page = cJSON_GetObjectItemCaseSensitive(root, "page");
+    cJSON *balances = cJSON_GetObjectItemCaseSensitive(root, "balances");
 
-    if (json_object_object_get_ex(root, "page", &page) && page && json_object_is_type(page, json_type_object)) {
-        struct json_object *page_number = NULL;
-        struct json_object *page_size = NULL;
-        struct json_object *more = NULL;
+    if (!res) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
-        if (json_object_object_get_ex(page, "page", &page_number)) {
-            res->page.page = json_object_get_int(page_number);
+    if (cJSON_IsObject(page)) {
+        cJSON *page_number = cJSON_GetObjectItemCaseSensitive(page, "page");
+        cJSON *page_size = cJSON_GetObjectItemCaseSensitive(page, "pageSize");
+        cJSON *more = cJSON_GetObjectItemCaseSensitive(page, "more");
+
+        if (cJSON_IsNumber(page_number)) {
+            res->page.page = (int)cJSON_GetNumberValue(page_number);
         }
-        if (json_object_object_get_ex(page, "pageSize", &page_size)) {
-            res->page.pageSize = json_object_get_int(page_size);
+        if (cJSON_IsNumber(page_size)) {
+            res->page.pageSize = (int)cJSON_GetNumberValue(page_size);
         }
-        if (json_object_object_get_ex(page, "more", &more)) {
-            res->page.more = json_object_get_boolean(more);
+        if (cJSON_IsBool(more)) {
+            res->page.more = cJSON_IsTrue(more);
         }
     }
 
-    if (json_object_object_get_ex(root, "balances", &balances) && balances &&
-        json_object_is_type(balances, json_type_array)) {
-        res->balancesCount = (int)json_object_array_length(balances);
-        res->balances = calloc(res->balancesCount, sizeof(SequenceBalance));
+    if (cJSON_IsArray(balances)) {
+        res->balancesCount = cJSON_GetArraySize(balances);
+        res->balances = calloc((size_t)res->balancesCount, sizeof(SequenceBalance));
+
+        if (!res->balances) {
+            cJSON_Delete(root);
+            free(res);
+            return NULL;
+        }
 
         for (int i = 0; i < res->balancesCount; i++) {
-            struct json_object *b = json_object_array_get_idx(balances, i);
+            cJSON *b = cJSON_GetArrayItem(balances, i);
             SequenceBalance *dst = &res->balances[i];
-            struct json_object *field = NULL;
+            cJSON *field = NULL;
 
-            if (!b || !json_object_is_type(b, json_type_object)) {
+            if (!cJSON_IsObject(b)) {
                 continue;
             }
 
-            if (json_object_object_get_ex(b, "contractType", &field)) dst->contractType = dup_json_string(field);
-            if (json_object_object_get_ex(b, "contractAddress", &field)) dst->contractAddress = dup_json_string(field);
-            if (json_object_object_get_ex(b, "accountAddress", &field)) dst->accountAddress = dup_json_string(field);
-            if (json_object_object_get_ex(b, "tokenID", &field)) dst->tokenID = dup_json_string(field);
-            if (json_object_object_get_ex(b, "balance", &field)) dst->balance = dup_json_string(field);
-            if (json_object_object_get_ex(b, "blockHash", &field)) dst->blockHash = dup_json_string(field);
-            if (json_object_object_get_ex(b, "blockNumber", &field)) dst->blockNumber = json_object_get_int(field);
-            if (json_object_object_get_ex(b, "chainId", &field)) dst->chainId = json_object_get_int(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "contractType");
+            if (field) dst->contractType = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "contractAddress");
+            if (field) dst->contractAddress = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "accountAddress");
+            if (field) dst->accountAddress = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "tokenID");
+            if (field) dst->tokenID = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "balance");
+            if (field) dst->balance = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "blockHash");
+            if (field) dst->blockHash = dup_json_string(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "blockNumber");
+            if (cJSON_IsNumber(field)) dst->blockNumber = (int)cJSON_GetNumberValue(field);
+            field = cJSON_GetObjectItemCaseSensitive(b, "chainId");
+            if (cJSON_IsNumber(field)) dst->chainId = (int)cJSON_GetNumberValue(field);
         }
     }
 
-    json_object_put(root);
-
+    cJSON_Delete(root);
     return res;
 }

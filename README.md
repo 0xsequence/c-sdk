@@ -6,7 +6,7 @@
 
 ```shell
 arch -arm64 brew install cmake pkg-config
-brew install secp256k1 json-c curl mbedtls
+brew install secp256k1 cjson curl mbedtls
 ```
 
 `mbedtls` is required by the current CMake build. For standard macOS setup, install it with Homebrew.
@@ -33,11 +33,8 @@ cmake --build build
 #### Temporary generated-client patch
 
 The vendored generated WAAS C client currently includes a small local patch in
-[`lib/generated/waas/waas.gen.c:744`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L744)
-through
-[`lib/generated/waas/waas.gen.c:755`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c#L755)
-(`+3/-6`) to tolerate a missing `iss` field in the live `CompleteAuth`
-response.
+[`lib/generated/waas/waas.gen.c`](/Users/tarikan/Development/0xsequence/c-sdk/lib/generated/waas/waas.gen.c)
+to tolerate a missing `iss` field in the live `CompleteAuth` response.
 
 This is temporary and should be removed once the WAAS API contract is updated
 or fixed upstream.

@@ -128,15 +128,15 @@ static waas_wallet *select_wallet_from_auth(
         return NULL;
     }
 
-    if (response->wallets.count == 0) {
+    if (!response->complete_auth_response || response->complete_auth_response->wallets.count == 0) {
         return sequence_create_wallet_of_type(wallet_type);
     }
 
-    if (response->wallets.items) {
-        for (size_t i = 0; i < response->wallets.count; ++i) {
-            if (response->wallets.items[i] &&
+    if (response->complete_auth_response->wallets.items) {
+        for (size_t i = 0; i < response->complete_auth_response->wallets.count; ++i) {
+            if (response->complete_auth_response->wallets.items[i] &&
                 strcmp(
-                    waas_wallet_type_to_string(response->wallets.items[i]->type),
+                    waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
                     wallet_type) == 0) {
                 wallet = sequence_use_wallet(wallet_type);
                 break;
@@ -315,7 +315,7 @@ int main(int argc, char **argv) {
 
         } else {
 
-            if (res->wallets.count == 0) {
+            if (!res->complete_auth_response || res->complete_auth_response->wallets.count == 0) {
                 printf("No wallets available, please create a new wallet.\n");
                 print_use_case("Create Wallet", "sequence-wallet create-wallet");
 
@@ -325,13 +325,13 @@ int main(int argc, char **argv) {
 
             printf("Please select one of the existing wallet types:\n");
 
-            if (res->wallets.items) {
-                for (size_t i = 0; i < res->wallets.count; ++i) {
-                    if (res->wallets.items[i]) {
+            if (res->complete_auth_response && res->complete_auth_response->wallets.items) {
+                for (size_t i = 0; i < res->complete_auth_response->wallets.count; ++i) {
+                    if (res->complete_auth_response->wallets.items[i]) {
                         printf(
                             "Wallet Type %zu: %s\n",
                             i,
-                            waas_wallet_type_to_string(res->wallets.items[i]->type));
+                            waas_wallet_type_to_string(res->complete_auth_response->wallets.items[i]->type));
                     }
                 }
             }
@@ -424,7 +424,9 @@ int main(int argc, char **argv) {
 
         sequence_restore_session();
         waas_wallet_sign_message_response *signature = sequence_sign_message(chain_id, message);
-        printf("Signature: %s\n", signature ? signature->signature : "(null)");
+        printf(
+            "Signature: %s\n",
+            (signature && signature->sign_message_response) ? signature->sign_message_response->signature : "(null)");
         free_sign_message_response(signature);
 
     } else if (strcmp(cmd, "send-transaction") == 0) {
@@ -445,7 +447,7 @@ int main(int argc, char **argv) {
         waas_wallet_send_transaction_response *tx = sequence_send_transaction(chain_id, to, value);
         printf(
             "Transaction Hash: %s\n",
-            (tx && tx->response) ? tx->response->tx_hash : "(null)");
+            (tx && tx->send_transaction_response) ? tx->send_transaction_response->tx_hash : "(null)");
         free_send_transaction_response(tx);
 
     } else {

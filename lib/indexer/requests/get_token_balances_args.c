@@ -1,5 +1,5 @@
 #include "get_token_balances_args.h"
-#include <json-c/json.h>
+#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,31 +9,36 @@ char *sequence_build_get_token_balances_args(
     const char *account_address,
     bool include_metadata)
 {
-    struct json_object *root = json_object_new_object();
-    struct json_object *page = json_object_new_object();
+    cJSON *root = cJSON_CreateObject();
+    cJSON *page;
+    char *printed;
+    char *out;
 
-    if (!root || !page) {
-        if (root) {
-            json_object_put(root);
-        }
-        if (page) {
-            json_object_put(page);
-        }
+    if (!root) {
         return NULL;
     }
 
-    json_object_object_add(root, "contractAddress", json_object_new_string(contract_address ? contract_address : ""));
-    json_object_object_add(root, "accountAddress", json_object_new_string(account_address ? account_address : ""));
-    json_object_object_add(root, "includeMetadata", json_object_new_boolean(include_metadata));
+    if (!cJSON_AddStringToObject(root, "contractAddress", contract_address ? contract_address : "") ||
+        !cJSON_AddStringToObject(root, "accountAddress", account_address ? account_address : "") ||
+        !cJSON_AddBoolToObject(root, "includeMetadata", include_metadata)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
-    json_object_object_add(root, "page", page);
-    json_object_object_add(page, "page", json_object_new_int(0));
-    json_object_object_add(page, "pageSize", json_object_new_int(40));
-    json_object_object_add(page, "more", json_object_new_boolean(false));
+    page = cJSON_AddObjectToObject(root, "page");
+    if (!page ||
+        !cJSON_AddNumberToObject(page, "page", 0) ||
+        !cJSON_AddNumberToObject(page, "pageSize", 40) ||
+        !cJSON_AddBoolToObject(page, "more", 0)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
-    const char *json_str = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PLAIN);
-    char *json_out = json_str ? strdup(json_str) : NULL;
-
-    json_object_put(root);
-    return json_out;
+    printed = cJSON_PrintUnformatted(root);
+    out = printed ? strdup(printed) : NULL;
+    if (printed) {
+        cJSON_free(printed);
+    }
+    cJSON_Delete(root);
+    return out;
 }
