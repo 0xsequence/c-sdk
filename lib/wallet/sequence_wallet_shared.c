@@ -18,6 +18,7 @@ char *cur_challenge = NULL;
 char *cur_verifier = NULL;
 static const char *g_default_wallet_type = "Ethereum_EOA";
 static const char *g_wallet_rpc_path = "/rpc/Wallet";
+static size_t g_waas_runtime_ref_count = 0;
 
 const char *sequence_default_wallet_type(void)
 {
@@ -56,6 +57,31 @@ void sequence_set_waas_error(
     error->name = waas_strdup(name ? name : "ClientError");
     error->message = waas_strdup(message ? message : "request failed");
     error->cause = cause ? waas_strdup(cause) : NULL;
+}
+
+static int sequence_waas_runtime_acquire(waas_error *error)
+{
+    if (g_waas_runtime_ref_count == 0 && waas_runtime_init(error) != 0)
+    {
+        return -1;
+    }
+
+    g_waas_runtime_ref_count++;
+    return 0;
+}
+
+static void sequence_waas_runtime_release(void)
+{
+    if (g_waas_runtime_ref_count == 0)
+    {
+        return;
+    }
+
+    g_waas_runtime_ref_count--;
+    if (g_waas_runtime_ref_count == 0)
+    {
+        waas_runtime_cleanup();
+    }
 }
 
 static char *sequence_build_access_key_header(void)
@@ -186,6 +212,13 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     size_t headers_count = 0;
     waas_client_options options;
     waas_wallet_client *client = NULL;
+    int runtime_acquired = 0;
+
+    if (sequence_waas_runtime_acquire(error) != 0)
+    {
+        return NULL;
+    }
+    runtime_acquired = 1;
 
     access_key_header = sequence_build_access_key_header();
     base_url = sequence_wallet_client_base_url();
@@ -221,6 +254,10 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     }
 
 cleanup:
+    if (!client && runtime_acquired)
+    {
+        sequence_waas_runtime_release();
+    }
     free(base_url);
     free(access_key_header);
     return client;
@@ -335,7 +372,12 @@ void sequence_wallet_rpc_context_free(sequence_wallet_rpc_context *rpc)
         return;
     }
 
-    waas_wallet_client_destroy(rpc->client);
+    if (rpc->client)
+    {
+        waas_wallet_client_destroy(rpc->client);
+        rpc->client = NULL;
+        sequence_waas_runtime_release();
+    }
     waas_http_response_free(&rpc->http_response);
     waas_prepared_request_free(&rpc->prepared_request);
     waas_error_free(&rpc->error);
