@@ -135,4 +135,11 @@ if(BUILD_TESTING)
             tests/timestamps_test.c)
     target_link_libraries(timestamps_test PRIVATE sequence_c_sdk)
     add_test(NAME timestamps_test COMMAND timestamps_test)
+
+    if(UNIX AND NOT APPLE)
+        add_executable(secure_storage_test
+                tests/secure_storage_test.c)
+        target_link_libraries(secure_storage_test PRIVATE sequence_c_sdk)
+        add_test(NAME secure_storage_test COMMAND secure_storage_test)
+    endif()
 endif()

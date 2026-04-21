@@ -3,7 +3,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +14,7 @@
 #include "wallet/sequence_config.h"
 
 #define SEQUENCE_DEFAULT_STORAGE_DIR ".sequence-c-sdk"
+#define SEQUENCE_TMPFILE_MAX_ATTEMPTS 128
 
 static char sanitize_key_char(char c)
 {
@@ -71,125 +71,160 @@ static char *sequence_storage_dir_dup(void)
     }
 }
 
-static int ensure_storage_dir(const char *dir)
+static int open_storage_dir(int *out_fd)
 {
+    char *dir = NULL;
+    int dir_fd = -1;
+    int status = 0;
     struct stat st;
 
-    if (!dir || dir[0] == '\0')
+    if (!out_fd)
     {
         return EINVAL;
     }
 
-    if (mkdir(dir, 0700) == 0)
-    {
-        return 0;
-    }
-
-    if (errno != EEXIST)
-    {
-        return errno;
-    }
-
-    if (stat(dir, &st) != 0)
-    {
-        return errno;
-    }
-
-    if (!S_ISDIR(st.st_mode))
-    {
-        return ENOTDIR;
-    }
-
-    if (chmod(dir, 0700) != 0)
-    {
-        return errno;
-    }
-
-    return 0;
-}
-
-static char *build_storage_path(const char *key)
-{
-    char *dir;
-    char *path;
-    size_t dir_len;
-    size_t key_len;
-    size_t path_len;
-
-    if (!key || key[0] == '\0')
-    {
-        errno = EINVAL;
-        return NULL;
-    }
-
+    *out_fd = -1;
     dir = sequence_storage_dir_dup();
     if (!dir)
-    {
-        errno = ENOMEM;
-        return NULL;
-    }
-
-    dir_len = strlen(dir);
-    key_len = strlen(key);
-    path_len = dir_len + 1 + key_len + 1;
-    path = malloc(path_len);
-    if (!path)
-    {
-        free(dir);
-        errno = ENOMEM;
-        return NULL;
-    }
-
-    snprintf(path, path_len, "%s/", dir);
-    for (size_t i = 0; i < key_len; ++i)
-    {
-        path[dir_len + 1 + i] = sanitize_key_char(key[i]);
-    }
-    path[path_len - 1] = '\0';
-
-    free(dir);
-    return path;
-}
-
-static int write_file_atomic(const char *path, const void *data, size_t len)
-{
-    char *tmp_path;
-    int fd;
-    int status = 0;
-    size_t path_len;
-    ssize_t written;
-    size_t total = 0;
-
-    if (!path || (!data && len != 0))
-    {
-        return EINVAL;
-    }
-
-    path_len = strlen(path);
-    tmp_path = malloc(path_len + strlen(".tmpXXXXXX") + 1);
-    if (!tmp_path)
     {
         return ENOMEM;
     }
 
-    snprintf(tmp_path, path_len + strlen(".tmpXXXXXX") + 1, "%s.tmpXXXXXX", path);
-    fd = mkstemp(tmp_path);
-    if (fd < 0)
-    {
-        status = errno;
-        free(tmp_path);
-        return status;
-    }
-
-    if (fchmod(fd, 0600) != 0)
+    if (mkdir(dir, 0700) != 0 && errno != EEXIST)
     {
         status = errno;
         goto cleanup;
     }
 
+    dir_fd = open(
+        dir,
+        O_RDONLY | O_DIRECTORY | O_CLOEXEC
+#ifdef O_NOFOLLOW
+        | O_NOFOLLOW
+#endif
+    );
+    if (dir_fd < 0)
+    {
+        status = errno;
+        goto cleanup;
+    }
+
+    if (fstat(dir_fd, &st) != 0)
+    {
+        status = errno;
+        goto cleanup;
+    }
+
+    if (!S_ISDIR(st.st_mode))
+    {
+        status = ENOTDIR;
+        goto cleanup;
+    }
+
+    if ((st.st_mode & 0777) != 0700 && fchmod(dir_fd, 0700) != 0)
+    {
+        status = errno;
+        goto cleanup;
+    }
+
+    *out_fd = dir_fd;
+    dir_fd = -1;
+
+cleanup:
+    free(dir);
+    if (dir_fd >= 0)
+    {
+        close(dir_fd);
+    }
+    return status;
+}
+
+static char *build_storage_filename(const char *key)
+{
+    char *filename;
+    size_t key_len;
+
+    if (!key || key[0] == '\0')
+    {
+        return NULL;
+    }
+
+    key_len = strlen(key);
+    filename = malloc(key_len + 1);
+    if (!filename)
+    {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < key_len; ++i)
+    {
+        filename[i] = sanitize_key_char(key[i]);
+    }
+    filename[key_len] = '\0';
+    return filename;
+}
+
+static int write_file_atomic(int dir_fd, const char *filename, const void *data, size_t len)
+{
+    char *tmp_name = NULL;
+    int fd = -1;
+    int status = 0;
+    size_t total = 0;
+    int created_tmp = 0;
+
+    if (dir_fd < 0 || !filename || (!data && len != 0))
+    {
+        return EINVAL;
+    }
+
+    {
+        size_t tmp_name_len = strlen(filename) + 32;
+
+        tmp_name = malloc(tmp_name_len);
+        if (!tmp_name)
+        {
+            return ENOMEM;
+        }
+
+        for (unsigned int attempt = 0; attempt < SEQUENCE_TMPFILE_MAX_ATTEMPTS; ++attempt)
+        {
+            snprintf(
+                tmp_name,
+                tmp_name_len,
+                ".%s.tmp.%ld.%u",
+                filename,
+                (long)getpid(),
+                attempt);
+
+            fd = openat(
+                dir_fd,
+                tmp_name,
+                O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
+                0600);
+            if (fd >= 0)
+            {
+                created_tmp = 1;
+                break;
+            }
+
+            if (errno != EEXIST)
+            {
+                status = errno;
+                goto cleanup;
+            }
+        }
+    }
+
+    if (fd < 0)
+    {
+        status = EEXIST;
+        goto cleanup;
+    }
+
     while (total < len)
     {
-        written = write(fd, (const uint8_t *)data + total, len - total);
+        ssize_t written = write(fd, (const uint8_t *)data + total, len - total);
+
         if (written < 0)
         {
             if (errno == EINTR)
@@ -199,6 +234,12 @@ static int write_file_atomic(const char *path, const void *data, size_t len)
             status = errno;
             goto cleanup;
         }
+        if (written == 0)
+        {
+            status = EIO;
+            goto cleanup;
+        }
+
         total += (size_t)written;
     }
 
@@ -210,13 +251,20 @@ static int write_file_atomic(const char *path, const void *data, size_t len)
 
     if (close(fd) != 0)
     {
-        fd = -1;
         status = errno;
+        fd = -1;
         goto cleanup;
     }
     fd = -1;
 
-    if (rename(tmp_path, path) != 0)
+    if (renameat(dir_fd, tmp_name, dir_fd, filename) != 0)
+    {
+        status = errno;
+        goto cleanup;
+    }
+
+    created_tmp = 0;
+    if (fsync(dir_fd) != 0)
     {
         status = errno;
         goto cleanup;
@@ -227,22 +275,22 @@ cleanup:
     {
         close(fd);
     }
-    if (status != 0)
+    if (created_tmp)
     {
-        unlink(tmp_path);
+        unlinkat(dir_fd, tmp_name, 0);
     }
-    free(tmp_path);
+    free(tmp_name);
     return status;
 }
 
-static int read_file_all(const char *path, uint8_t **out_data, size_t *out_len)
+static int read_file_all(int dir_fd, const char *filename, uint8_t **out_data, size_t *out_len)
 {
     struct stat st;
-    int fd;
-    uint8_t *data;
+    int fd = -1;
+    uint8_t *data = NULL;
     size_t total = 0;
 
-    if (!path || !out_data || !out_len)
+    if (dir_fd < 0 || !filename || !out_data || !out_len)
     {
         return EINVAL;
     }
@@ -250,27 +298,41 @@ static int read_file_all(const char *path, uint8_t **out_data, size_t *out_len)
     *out_data = NULL;
     *out_len = 0;
 
-    if (stat(path, &st) != 0)
-    {
-        return errno;
-    }
-
-    if (st.st_size < 0)
-    {
-        return EINVAL;
-    }
-
-    fd = open(path, O_RDONLY);
+    fd = openat(
+        dir_fd,
+        filename,
+        O_RDONLY | O_CLOEXEC
+#ifdef O_NOFOLLOW
+        | O_NOFOLLOW
+#endif
+    );
     if (fd < 0)
     {
         return errno;
     }
 
-    data = malloc((size_t)st.st_size);
-    if (!data && st.st_size != 0)
+    if (fstat(fd, &st) != 0)
+    {
+        int status = errno;
+
+        close(fd);
+        return status;
+    }
+
+    if (!S_ISREG(st.st_mode) || st.st_size < 0)
     {
         close(fd);
-        return ENOMEM;
+        return EINVAL;
+    }
+
+    if (st.st_size > 0)
+    {
+        data = malloc((size_t)st.st_size);
+        if (!data)
+        {
+            close(fd);
+            return ENOMEM;
+        }
     }
 
     while (total < (size_t)st.st_size)
@@ -289,56 +351,96 @@ static int read_file_all(const char *path, uint8_t **out_data, size_t *out_len)
         }
         if (nread == 0)
         {
-            break;
+            free(data);
+            close(fd);
+            return EIO;
         }
 
         total += (size_t)nread;
     }
 
-    close(fd);
+    if (close(fd) != 0)
+    {
+        free(data);
+        return errno;
+    }
     *out_data = data;
     *out_len = total;
     return 0;
 }
 
-int secure_store_write_string(const char *key, const char *value)
+static int secure_store_write_bytes(const char *key, const void *data, size_t len)
 {
-    char *dir;
-    char *path;
+    char *filename = NULL;
+    int dir_fd = -1;
     int status;
 
+    if (!key || (!data && len != 0))
+    {
+        return EINVAL;
+    }
+
+    filename = build_storage_filename(key);
+    if (!filename)
+    {
+        return ENOMEM;
+    }
+
+    status = open_storage_dir(&dir_fd);
+    if (status != 0)
+    {
+        free(filename);
+        return status;
+    }
+
+    status = write_file_atomic(dir_fd, filename, data, len);
+    close(dir_fd);
+    free(filename);
+    return status;
+}
+
+static int secure_store_read_bytes(const char *key, uint8_t **out_data, size_t *out_len)
+{
+    char *filename = NULL;
+    int dir_fd = -1;
+    int status;
+
+    if (!key || !out_data || !out_len)
+    {
+        return EINVAL;
+    }
+
+    filename = build_storage_filename(key);
+    if (!filename)
+    {
+        return ENOMEM;
+    }
+
+    status = open_storage_dir(&dir_fd);
+    if (status != 0)
+    {
+        free(filename);
+        return status;
+    }
+
+    status = read_file_all(dir_fd, filename, out_data, out_len);
+    close(dir_fd);
+    free(filename);
+    return status;
+}
+
+int secure_store_write_string(const char *key, const char *value)
+{
     if (!key || !value)
     {
         return EINVAL;
     }
 
-    dir = sequence_storage_dir_dup();
-    if (!dir)
-    {
-        return ENOMEM;
-    }
-
-    status = ensure_storage_dir(dir);
-    free(dir);
-    if (status != 0)
-    {
-        return status;
-    }
-
-    path = build_storage_path(key);
-    if (!path)
-    {
-        return errno ? errno : ENOMEM;
-    }
-
-    status = write_file_atomic(path, value, strlen(value));
-    free(path);
-    return status;
+    return secure_store_write_bytes(key, value, strlen(value));
 }
 
 int secure_store_read_string(const char *key, char **value)
 {
-    char *path;
     uint8_t *data = NULL;
     size_t len = 0;
     int status;
@@ -348,14 +450,7 @@ int secure_store_read_string(const char *key, char **value)
         return EINVAL;
     }
 
-    path = build_storage_path(key);
-    if (!path)
-    {
-        return errno ? errno : ENOMEM;
-    }
-
-    status = read_file_all(path, &data, &len);
-    free(path);
+    status = secure_store_read_bytes(key, &data, &len);
     if (status != 0)
     {
         return status;
@@ -368,7 +463,10 @@ int secure_store_read_string(const char *key, char **value)
         return ENOMEM;
     }
 
-    memcpy(*value, data, len);
+    if (len > 0)
+    {
+        memcpy(*value, data, len);
+    }
     (*value)[len] = '\0';
     free(data);
     return 0;
@@ -376,42 +474,16 @@ int secure_store_read_string(const char *key, char **value)
 
 int secure_store_write_seckey(const uint8_t seckey[32])
 {
-    char *dir;
-    char *path;
-    int status;
-
     if (!seckey)
     {
         return EINVAL;
     }
 
-    dir = sequence_storage_dir_dup();
-    if (!dir)
-    {
-        return ENOMEM;
-    }
-
-    status = ensure_storage_dir(dir);
-    free(dir);
-    if (status != 0)
-    {
-        return status;
-    }
-
-    path = build_storage_path("seckey");
-    if (!path)
-    {
-        return errno ? errno : ENOMEM;
-    }
-
-    status = write_file_atomic(path, seckey, 32);
-    free(path);
-    return status;
+    return secure_store_write_bytes("seckey", seckey, 32);
 }
 
 int secure_store_read_seckey(uint8_t seckey[32])
 {
-    char *path;
     uint8_t *data = NULL;
     size_t len = 0;
     int status;
@@ -421,14 +493,7 @@ int secure_store_read_seckey(uint8_t seckey[32])
         return EINVAL;
     }
 
-    path = build_storage_path("seckey");
-    if (!path)
-    {
-        return errno ? errno : ENOMEM;
-    }
-
-    status = read_file_all(path, &data, &len);
-    free(path);
+    status = secure_store_read_bytes("seckey", &data, &len);
     if (status != 0)
     {
         return status;
