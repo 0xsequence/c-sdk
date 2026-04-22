@@ -28,8 +28,12 @@ All signatures below follow the current C SDK behavior:
   `0x1111111111111111111111111111111111111111111111111111111111111111`
 - Derived address:
   `0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a`
-- Scope:
+- Scope test fixture:
   `@1:test`
+
+The runtime wallet auth scope used by the SDK defaults to `proj_1`. These
+vectors intentionally keep `@1:test` as a fixed signing fixture so other SDKs
+can compare payload and header generation byte-for-byte.
 
 ## Vector: CommitVerifier
 

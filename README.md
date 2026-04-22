@@ -63,10 +63,12 @@ Common overrides:
 sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
 sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
 sequence_config_set_wallet_rpc_url("https://your-wallet-host/rpc/Wallet");
-sequence_config_set_wallet_auth_scope("@1:test");
 sequence_config_set_origin_header("Origin: http://localhost:3000");
 sequence_config_set_storage_dir("/var/lib/sequence-c-sdk");
 ```
+
+The default wallet auth scope is `proj_1`. Only override it if your environment
+requires a different scope.
 
 Call `sequence_config_cleanup()` when you are done with SDK-owned config state.
 
@@ -89,15 +91,6 @@ Override the storage location with:
 sequence_config_set_storage_dir("/path/to/app-state");
 ```
 
-#### Temporary generated-client patch
-
-The vendored generated WAAS C client currently includes a small local
-compatibility patch in `lib/generated/waas/waas.gen.c` to tolerate a missing
-`iss` field in the live `CompleteAuth` response.
-
-This is temporary and should be removed once the WAAS API contract is updated
-or fixed upstream.
-
 #### Run tests
 
 ```shell
@@ -111,6 +104,7 @@ Current test coverage:
 
 - `sequence_request_signing_test`: validates canonical request payloads, preimages, digests, signatures, and authorization headers against checked-in vectors
 - `timestamps_test`: validates nonce monotonicity from `timestamp_next_nonce()`
+- `secure_storage_test`: Linux-only regression test for the POSIX secure-storage backend
 
 #### Run the demo or cli
 
@@ -128,13 +122,14 @@ Current test coverage:
 # Sign in with Email
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
-# Confirm Email sign in
+# Confirm Email sign in and automatically select the first matching wallet,
+# or create one if none exists for that type
 ./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type ethereum
 
-# Use wallet
+# Optional: switch to a specific wallet later
 ./build/sequence-wallet use-wallet --wallet-id <wallet-id>
 
-# Create wallet
+# Optional: create an additional wallet of the default type (ethereum)
 ./build/sequence-wallet create-wallet
 
 # Sign message
