@@ -129,10 +129,10 @@ Current test coverage:
 ./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
 
 # Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type Ethereum_EOA
+./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type ethereum
 
 # Use wallet
-./build/sequence-wallet use-wallet --wallet-type Ethereum_EOA
+./build/sequence-wallet use-wallet --wallet-id <wallet-id>
 
 # Create wallet
 ./build/sequence-wallet create-wallet
