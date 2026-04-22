@@ -7,9 +7,9 @@ typedef struct {
     uint64_t bit_len;
     uint8_t buffer[64];
     size_t buffer_len;
-} sequence_sha256_ctx;
+} oms_wallet_sha256_ctx;
 
-static const uint32_t k_sequence_sha256_round_constants[64] = {
+static const uint32_t k_oms_wallet_sha256_round_constants[64] = {
     0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u,
     0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
     0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
@@ -28,12 +28,12 @@ static const uint32_t k_sequence_sha256_round_constants[64] = {
     0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u,
 };
 
-static uint32_t sequence_sha256_rotr(uint32_t value, uint32_t bits)
+static uint32_t oms_wallet_sha256_rotr(uint32_t value, uint32_t bits)
 {
     return (value >> bits) | (value << (32u - bits));
 }
 
-static void sequence_sha256_transform(sequence_sha256_ctx *ctx, const uint8_t block[64])
+static void oms_wallet_sha256_transform(oms_wallet_sha256_ctx *ctx, const uint8_t block[64])
 {
     uint32_t schedule[64];
     uint32_t a;
@@ -55,11 +55,11 @@ static void sequence_sha256_transform(sequence_sha256_ctx *ctx, const uint8_t bl
 
     for (size_t i = 16; i < 64; ++i)
     {
-        uint32_t s0 = sequence_sha256_rotr(schedule[i - 15], 7) ^
-                      sequence_sha256_rotr(schedule[i - 15], 18) ^
+        uint32_t s0 = oms_wallet_sha256_rotr(schedule[i - 15], 7) ^
+                      oms_wallet_sha256_rotr(schedule[i - 15], 18) ^
                       (schedule[i - 15] >> 3);
-        uint32_t s1 = sequence_sha256_rotr(schedule[i - 2], 17) ^
-                      sequence_sha256_rotr(schedule[i - 2], 19) ^
+        uint32_t s1 = oms_wallet_sha256_rotr(schedule[i - 2], 17) ^
+                      oms_wallet_sha256_rotr(schedule[i - 2], 19) ^
                       (schedule[i - 2] >> 10);
         schedule[i] = schedule[i - 16] + s0 + schedule[i - 7] + s1;
     }
@@ -75,14 +75,14 @@ static void sequence_sha256_transform(sequence_sha256_ctx *ctx, const uint8_t bl
 
     for (size_t i = 0; i < 64; ++i)
     {
-        uint32_t s1 = sequence_sha256_rotr(e, 6) ^
-                      sequence_sha256_rotr(e, 11) ^
-                      sequence_sha256_rotr(e, 25);
+        uint32_t s1 = oms_wallet_sha256_rotr(e, 6) ^
+                      oms_wallet_sha256_rotr(e, 11) ^
+                      oms_wallet_sha256_rotr(e, 25);
         uint32_t choice = (e & f) ^ (~e & g);
-        uint32_t temp1 = h + s1 + choice + k_sequence_sha256_round_constants[i] + schedule[i];
-        uint32_t s0 = sequence_sha256_rotr(a, 2) ^
-                      sequence_sha256_rotr(a, 13) ^
-                      sequence_sha256_rotr(a, 22);
+        uint32_t temp1 = h + s1 + choice + k_oms_wallet_sha256_round_constants[i] + schedule[i];
+        uint32_t s0 = oms_wallet_sha256_rotr(a, 2) ^
+                      oms_wallet_sha256_rotr(a, 13) ^
+                      oms_wallet_sha256_rotr(a, 22);
         uint32_t majority = (a & b) ^ (a & c) ^ (b & c);
         uint32_t temp2 = s0 + majority;
 
@@ -106,7 +106,7 @@ static void sequence_sha256_transform(sequence_sha256_ctx *ctx, const uint8_t bl
     ctx->state[7] += h;
 }
 
-static void sequence_sha256_init(sequence_sha256_ctx *ctx)
+static void oms_wallet_sha256_init(oms_wallet_sha256_ctx *ctx)
 {
     memset(ctx, 0, sizeof(*ctx));
     ctx->state[0] = 0x6a09e667u;
@@ -119,7 +119,7 @@ static void sequence_sha256_init(sequence_sha256_ctx *ctx)
     ctx->state[7] = 0x5be0cd19u;
 }
 
-static void sequence_sha256_update(sequence_sha256_ctx *ctx, const uint8_t *data, size_t len)
+static void oms_wallet_sha256_update(oms_wallet_sha256_ctx *ctx, const uint8_t *data, size_t len)
 {
     while (len > 0)
     {
@@ -134,13 +134,13 @@ static void sequence_sha256_update(sequence_sha256_ctx *ctx, const uint8_t *data
 
         if (ctx->buffer_len == sizeof(ctx->buffer))
         {
-            sequence_sha256_transform(ctx, ctx->buffer);
+            oms_wallet_sha256_transform(ctx, ctx->buffer);
             ctx->buffer_len = 0;
         }
     }
 }
 
-static void sequence_sha256_finalize(sequence_sha256_ctx *ctx, uint8_t out[32])
+static void oms_wallet_sha256_finalize(oms_wallet_sha256_ctx *ctx, uint8_t out[32])
 {
     size_t i = ctx->buffer_len;
 
@@ -151,7 +151,7 @@ static void sequence_sha256_finalize(sequence_sha256_ctx *ctx, uint8_t out[32])
         {
             ctx->buffer[i++] = 0;
         }
-        sequence_sha256_transform(ctx, ctx->buffer);
+        oms_wallet_sha256_transform(ctx, ctx->buffer);
         i = 0;
     }
 
@@ -165,7 +165,7 @@ static void sequence_sha256_finalize(sequence_sha256_ctx *ctx, uint8_t out[32])
         ctx->buffer[63 - j] = (uint8_t)(ctx->bit_len >> (j * 8u));
     }
 
-    sequence_sha256_transform(ctx, ctx->buffer);
+    oms_wallet_sha256_transform(ctx, ctx->buffer);
 
     for (size_t j = 0; j < 8; ++j)
     {
@@ -176,14 +176,14 @@ static void sequence_sha256_finalize(sequence_sha256_ctx *ctx, uint8_t out[32])
     }
 }
 
-void sequence_sha256(const uint8_t *data, size_t len, uint8_t out[32])
+void oms_wallet_sha256(const uint8_t *data, size_t len, uint8_t out[32])
 {
-    sequence_sha256_ctx ctx;
+    oms_wallet_sha256_ctx ctx;
 
-    sequence_sha256_init(&ctx);
+    oms_wallet_sha256_init(&ctx);
     if (data && len > 0)
     {
-        sequence_sha256_update(&ctx, data, len);
+        oms_wallet_sha256_update(&ctx, data, len);
     }
-    sequence_sha256_finalize(&ctx, out);
+    oms_wallet_sha256_finalize(&ctx, out);
 }

@@ -1,5 +1,5 @@
-#include "sequence_connector.h"
-#include "sequence_wallet_internal.h"
+#include "oms_wallet.h"
+#include "oms_wallet_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,11 +7,11 @@
 
 #include "chains/chain_bindings.h"
 #include "generated/waas/waas.gen.h"
-#include "runtime/sequence_runtime.h"
+#include "runtime/oms_wallet_runtime.h"
 #include "storage/secure_storage.h"
 #include "utils/timestamps.h"
-#include "wallet/sequence_config.h"
-#include "wallet/sequence_request_signing.h"
+#include "wallet/oms_wallet_config.h"
+#include "wallet/oms_wallet_request_signing.h"
 
 eoa_wallet_t *cur_signer = NULL;
 char *cur_challenge = NULL;
@@ -20,7 +20,7 @@ char *cur_wallet_id = NULL;
 static const char *g_default_wallet_type = "ethereum";
 static const char *g_wallet_rpc_path = "/rpc/Wallet";
 
-const char *sequence_default_wallet_type(void)
+const char *oms_wallet_default_wallet_type(void)
 {
     return g_default_wallet_type;
 }
@@ -41,7 +41,7 @@ void clear_current_signer(void)
     cur_signer = NULL;
 }
 
-void sequence_set_waas_error(
+void oms_wallet_set_waas_error(
     waas_error *error,
     const char *name,
     const char *message,
@@ -59,33 +59,33 @@ void sequence_set_waas_error(
     error->cause = cause ? waas_strdup(cause) : NULL;
 }
 
-static char *sequence_build_access_key_header(void)
+static char *oms_wallet_build_access_key_header(void)
 {
     char *header;
     size_t len;
 
-    if (!sequence_config.access_key || sequence_config.access_key[0] == '\0')
+    if (!oms_wallet_config.access_key || oms_wallet_config.access_key[0] == '\0')
     {
         return NULL;
     }
 
-    len = strlen("X-Access-Key: ") + strlen(sequence_config.access_key) + 1;
+    len = strlen("X-Access-Key: ") + strlen(oms_wallet_config.access_key) + 1;
     header = malloc(len);
     if (!header)
     {
         return NULL;
     }
 
-    snprintf(header, len, "X-Access-Key: %s", sequence_config.access_key);
+    snprintf(header, len, "X-Access-Key: %s", oms_wallet_config.access_key);
     return header;
 }
 
-static char *sequence_wallet_client_base_url(void)
+static char *oms_wallet_client_base_url(void)
 {
     char *base_url;
     size_t url_len;
     size_t suffix_len;
-    const char *wallet_rpc_url = sequence_config.wallet_rpc_url;
+    const char *wallet_rpc_url = oms_wallet_config.wallet_rpc_url;
 
     if (!wallet_rpc_url || wallet_rpc_url[0] == '\0')
     {
@@ -113,7 +113,7 @@ static char *sequence_wallet_client_base_url(void)
     return waas_strdup(wallet_rpc_url);
 }
 
-static const char *sequence_wallet_request_endpoint(
+static const char *oms_wallet_request_endpoint(
     const waas_prepared_request *prepared_request,
     waas_error *error
 )
@@ -122,7 +122,7 @@ static const char *sequence_wallet_request_endpoint(
 
     if (!prepared_request || !prepared_request->path)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "prepared request path must be available",
@@ -133,7 +133,7 @@ static const char *sequence_wallet_request_endpoint(
     prefix_len = strlen(g_wallet_rpc_path);
     if (strncmp(prepared_request->path, g_wallet_rpc_path, prefix_len) != 0)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "prepared request path does not target Wallet RPC",
@@ -144,7 +144,7 @@ static const char *sequence_wallet_request_endpoint(
     return prepared_request->path + prefix_len;
 }
 
-int sequence_parse_wallet_type(
+int oms_wallet_parse_wallet_type(
     const char *wallet_type,
     waas_wallet_type *out,
     waas_error *error
@@ -152,7 +152,7 @@ int sequence_parse_wallet_type(
 {
     if (!wallet_type || !out || waas_wallet_type_from_string(wallet_type, out) != 0)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "unsupported wallet type",
@@ -163,7 +163,7 @@ int sequence_parse_wallet_type(
     return 0;
 }
 
-void sequence_log_waas_error(const char *operation, const waas_error *error)
+void oms_wallet_log_waas_error(const char *operation, const waas_error *error)
 {
     if (!error || !error->message)
     {
@@ -180,7 +180,7 @@ void sequence_log_waas_error(const char *operation, const waas_error *error)
         error->cause ? ")" : "");
 }
 
-static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
+static waas_wallet_client *oms_wallet_client_create(waas_error *error)
 {
     char *access_key_header = NULL;
     char *base_url = NULL;
@@ -190,18 +190,18 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     waas_wallet_client *client = NULL;
     int runtime_acquired = 0;
 
-    if (sequence_runtime_acquire(error) != 0)
+    if (oms_wallet_runtime_acquire(error) != 0)
     {
         return NULL;
     }
     runtime_acquired = 1;
 
-    access_key_header = sequence_build_access_key_header();
-    base_url = sequence_wallet_client_base_url();
+    access_key_header = oms_wallet_build_access_key_header();
+    base_url = oms_wallet_client_base_url();
 
     if (!base_url)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "failed to prepare generated wallet client",
@@ -214,9 +214,9 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     {
         headers[headers_count++] = access_key_header;
     }
-    if (sequence_config.origin_header && sequence_config.origin_header[0] != '\0')
+    if (oms_wallet_config.origin_header && oms_wallet_config.origin_header[0] != '\0')
     {
-        headers[headers_count++] = sequence_config.origin_header;
+        headers[headers_count++] = oms_wallet_config.origin_header;
     }
     headers[headers_count++] = "Accept: application/json";
     options.headers = headers;
@@ -225,7 +225,7 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     client = waas_wallet_client_create(base_url, &options);
     if (!client)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "failed to create generated wallet client",
@@ -235,14 +235,14 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
 cleanup:
     if (!client && runtime_acquired)
     {
-        sequence_runtime_release();
+        oms_wallet_runtime_release();
     }
     free(base_url);
     free(access_key_header);
     return client;
 }
 
-static int sequence_wallet_send_authorized_request(
+static int oms_wallet_send_authorized_request(
     waas_wallet_client *client,
     waas_prepared_request *prepared_request,
     waas_http_response *http_response,
@@ -260,7 +260,7 @@ static int sequence_wallet_send_authorized_request(
 
     if (!client || !prepared_request || !http_response || !cur_signer)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "client, prepared request, response, and signer must be available",
@@ -268,12 +268,12 @@ static int sequence_wallet_send_authorized_request(
         return -1;
     }
 
-    endpoint = sequence_wallet_request_endpoint(prepared_request, error);
+    endpoint = oms_wallet_request_endpoint(prepared_request, error);
     if (!endpoint || !prepared_request->body)
     {
         if (!error->message)
         {
-            sequence_set_waas_error(
+            oms_wallet_set_waas_error(
                 error,
                 "ClientError",
                 "prepared request body must be available",
@@ -285,20 +285,20 @@ static int sequence_wallet_send_authorized_request(
     nonce_int = timestamp_next_nonce();
     snprintf(nonce, sizeof(nonce), "%lld", nonce_int);
 
-    address = sequence_wallet_address_from_seckey(cur_signer->seckey);
+    address = oms_wallet_address_from_seckey(cur_signer->seckey);
     data_to_sign =
-        sequence_build_wallet_request_preimage(endpoint, nonce, prepared_request->body);
-    signature = sequence_sign_wallet_request_preimage(cur_signer->seckey, data_to_sign);
+        oms_wallet_build_wallet_request_preimage(endpoint, nonce, prepared_request->body);
+    signature = oms_wallet_sign_wallet_request_preimage(cur_signer->seckey, data_to_sign);
     auth_header =
-        sequence_build_wallet_authorization_header(
-            sequence_config.wallet_auth_scope ? sequence_config.wallet_auth_scope : "",
+        oms_wallet_build_wallet_authorization_header(
+            oms_wallet_config.wallet_auth_scope ? oms_wallet_config.wallet_auth_scope : "",
             address,
             nonce,
             signature);
 
     if (!address || !data_to_sign || !signature || !auth_header)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "failed to prepare signed wallet request",
@@ -308,7 +308,7 @@ static int sequence_wallet_send_authorized_request(
 
     if (waas_prepared_request_add_header(prepared_request, auth_header) != 0)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             "failed to append Authorization header to prepared request",
@@ -335,7 +335,7 @@ cleanup:
     return rc;
 }
 
-void sequence_wallet_rpc_context_init(sequence_wallet_rpc_context *rpc)
+void oms_wallet_rpc_context_init(oms_wallet_rpc_context *rpc)
 {
     if (!rpc)
     {
@@ -348,7 +348,7 @@ void sequence_wallet_rpc_context_init(sequence_wallet_rpc_context *rpc)
     waas_error_init(&rpc->error);
 }
 
-void sequence_wallet_rpc_context_free(sequence_wallet_rpc_context *rpc)
+void oms_wallet_rpc_context_free(oms_wallet_rpc_context *rpc)
 {
     if (!rpc)
     {
@@ -359,19 +359,19 @@ void sequence_wallet_rpc_context_free(sequence_wallet_rpc_context *rpc)
     {
         waas_wallet_client_destroy(rpc->client);
         rpc->client = NULL;
-        sequence_runtime_release();
+        oms_wallet_runtime_release();
     }
     waas_http_response_free(&rpc->http_response);
     waas_prepared_request_free(&rpc->prepared_request);
     waas_error_free(&rpc->error);
 }
 
-int sequence_wallet_rpc_execute(
-    sequence_wallet_rpc_context *rpc,
+int oms_wallet_rpc_execute(
+    oms_wallet_rpc_context *rpc,
     const void *request,
     void *response,
-    sequence_prepare_request_fn prepare_request,
-    sequence_parse_response_fn parse_response
+    oms_wallet_prepare_request_fn prepare_request,
+    oms_wallet_parse_response_fn parse_response
 )
 {
     if (!rpc || !request || !response || !prepare_request || !parse_response)
@@ -379,7 +379,7 @@ int sequence_wallet_rpc_execute(
         return -1;
     }
 
-    rpc->client = sequence_wallet_client_create(&rpc->error);
+    rpc->client = oms_wallet_client_create(&rpc->error);
     if (!rpc->client)
     {
         return -1;
@@ -390,7 +390,7 @@ int sequence_wallet_rpc_execute(
         return -1;
     }
 
-    if (sequence_wallet_send_authorized_request(
+    if (oms_wallet_send_authorized_request(
             rpc->client,
             &rpc->prepared_request,
             &rpc->http_response,
@@ -402,8 +402,8 @@ int sequence_wallet_rpc_execute(
     return parse_response(&rpc->http_response, response, &rpc->error);
 }
 
-#define SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(name, request_type, response_type)           \
-    int sequence_##name##_prepare_request(                                               \
+#define OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(name, request_type, response_type)           \
+    int oms_wallet_##name##_prepare_request(                                               \
         const void *request,                                                             \
         waas_prepared_request *prepared_request,                                         \
         waas_error *error)                                                               \
@@ -414,7 +414,7 @@ int sequence_wallet_rpc_execute(
             error);                                                                      \
     }                                                                                    \
                                                                                          \
-    int sequence_##name##_parse_response(                                                \
+    int oms_wallet_##name##_parse_response(                                                \
         const waas_http_response *http_response,                                         \
         void *response,                                                                  \
         waas_error *error)                                                               \
@@ -425,34 +425,34 @@ int sequence_wallet_rpc_execute(
             error);                                                                      \
     }
 
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     commit_verifier,
     waas_wallet_commit_verifier_request,
     waas_wallet_commit_verifier_response)
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     complete_auth,
     waas_wallet_complete_auth_request,
     waas_wallet_complete_auth_response)
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     create_wallet,
     waas_wallet_create_wallet_request,
     waas_wallet_create_wallet_response)
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     use_wallet,
     waas_wallet_use_wallet_request,
     waas_wallet_use_wallet_response)
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     sign_message,
     waas_wallet_sign_message_request,
     waas_wallet_sign_message_response)
-SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS(
+OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS(
     send_transaction,
     waas_wallet_send_transaction_request,
     waas_wallet_send_transaction_response)
 
-#undef SEQUENCE_DEFINE_WALLET_RPC_ADAPTERS
+#undef OMS_WALLET_DEFINE_WALLET_RPC_ADAPTERS
 
-static waas_wallet *sequence_take_wallet(waas_wallet **wallet)
+static waas_wallet *oms_wallet_take_wallet(waas_wallet **wallet)
 {
     waas_wallet *value;
 
@@ -466,7 +466,7 @@ static waas_wallet *sequence_take_wallet(waas_wallet **wallet)
     return value;
 }
 
-int sequence_require_signer_initialized(void)
+int oms_wallet_require_signer_initialized(void)
 {
     if (!cur_signer || !cur_signer->ctx)
     {
@@ -477,8 +477,8 @@ int sequence_require_signer_initialized(void)
     return 1;
 }
 
-int sequence_finalize_wallet_response(
-    sequence_wallet_rpc_context *rpc,
+int oms_wallet_finalize_wallet_response(
+    oms_wallet_rpc_context *rpc,
     waas_wallet **wallet_out,
     waas_wallet **response_wallet,
     const char *operation
@@ -489,10 +489,10 @@ int sequence_finalize_wallet_response(
         return -1;
     }
 
-    *wallet_out = sequence_take_wallet(response_wallet);
+    *wallet_out = oms_wallet_take_wallet(response_wallet);
     if (!*wallet_out || !(*wallet_out)->id || !(*wallet_out)->address)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc->error,
             "ClientError",
             operation ? operation : "wallet response missing id or address",
@@ -504,7 +504,7 @@ int sequence_finalize_wallet_response(
     cur_wallet_id = waas_strdup((*wallet_out)->id);
     if (!cur_wallet_id)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc->error,
             "ClientError",
             "failed to persist wallet id in memory",
@@ -517,12 +517,12 @@ int sequence_finalize_wallet_response(
     free(cur_verifier);
     cur_verifier = NULL;
 
-    secure_store_write_string("sequence_wallet_id", (*wallet_out)->id);
-    secure_store_write_string("sequence_wallet_address", (*wallet_out)->address);
+    secure_store_write_string("oms_wallet_id", (*wallet_out)->id);
+    secure_store_write_string("oms_wallet_address", (*wallet_out)->address);
     return 0;
 }
 
-int sequence_prepare_wallet_target_params(
+int oms_wallet_prepare_wallet_target_params(
     const char *chain_id,
     char **network_field,
     char **wallet_id_field,
@@ -544,17 +544,17 @@ int sequence_prepare_wallet_target_params(
     }
     else
     {
-        secure_store_read_string("sequence_wallet_id", &wallet_id);
+        secure_store_read_string("oms_wallet_id", &wallet_id);
     }
 
-    network = sequence_get_chain_name(chain_id);
+    network = oms_wallet_get_chain_name(chain_id);
     *network_field = network ? waas_strdup(network) : NULL;
     *wallet_id_field = wallet_id;
 
     if ((network && !*network_field) ||
         !wallet_id || !network)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             error,
             "ClientError",
             operation ? operation : "failed to prepare wallet target params",

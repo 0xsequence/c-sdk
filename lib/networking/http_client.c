@@ -1,13 +1,13 @@
 #include "http_client.h"
 #include "http_client_common.h"
-#include "runtime/sequence_runtime.h"
+#include "runtime/oms_wallet_runtime.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
 
-#include "../wallet/sequence_config.h"
+#include "../wallet/oms_wallet_config.h"
 
 struct HttpClient {
     char *base_url;
@@ -53,18 +53,18 @@ static HttpResponse make_error(const char *msg) {
 /* ---------- public API ---------- */
 
 HttpClient* http_client_create(const char *base_url) {
-    if (sequence_runtime_acquire(NULL) != 0) return NULL;
+    if (oms_wallet_runtime_acquire(NULL) != 0) return NULL;
 
     HttpClient *c = (HttpClient*)calloc(1, sizeof(HttpClient));
     if (!c) {
-        sequence_runtime_release();
+        oms_wallet_runtime_release();
         return NULL;
     }
 
     c->base_url = http_dup_cstr(base_url ? base_url : "");
     if (!c->base_url) {
         free(c);
-        sequence_runtime_release();
+        oms_wallet_runtime_release();
         return NULL;
     }
 
@@ -77,7 +77,7 @@ void http_client_destroy(HttpClient *c) {
     free(c->bearer_token);
     if (c->default_headers) curl_slist_free_all(c->default_headers);
     free(c);
-    sequence_runtime_release();
+    oms_wallet_runtime_release();
 }
 
 int http_client_set_bearer_token(HttpClient *c, const char *token) {
@@ -95,14 +95,14 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
     return 1;
 }
 
-int http_add_sequence_access_key(HttpClient *c) {
+int http_add_oms_wallet_access_key(HttpClient *c) {
     char *header;
 
-    if (!c || !sequence_config.access_key || !sequence_config.access_key[0]) {
+    if (!c || !oms_wallet_config.access_key || !oms_wallet_config.access_key[0]) {
         return 0; /* no key configured */
     }
 
-    header = http_sequence_access_key_header();
+    header = http_oms_wallet_access_key_header();
     if (!header) return -1;
 
     if (!http_client_add_header(c, header)) {

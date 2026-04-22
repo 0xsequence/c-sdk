@@ -4,24 +4,24 @@
 
 #include "requests/get_token_balances_args.h"
 #include "../chains/chain_bindings.h"
-#include "../wallet/sequence_config.h"
+#include "../wallet/oms_wallet_config.h"
 #include "../utils/string_utils.h"
 #include "../networking/http_client.h"
 
 #include <string.h>
 #include <stdlib.h>
 
-SequenceGetTokenBalancesReturn *sequence_get_token_balances(
+OmsWalletGetTokenBalancesReturn *oms_wallet_get_token_balances(
     const char *chain_id,
     const char *contract_address,
     const char *wallet_address,
     bool include_metadata
 ) {
-    SequenceGetTokenBalancesReturn *error_out;
-    SequenceGetTokenBalancesReturn *parsed = NULL;
-    const char *chain_name = sequence_get_chain_name(chain_id);
-    const char *host_template = sequence_config.indexer_url_template
-        ? sequence_config.indexer_url_template
+    OmsWalletGetTokenBalancesReturn *error_out;
+    OmsWalletGetTokenBalancesReturn *parsed = NULL;
+    const char *chain_name = oms_wallet_get_chain_name(chain_id);
+    const char *host_template = oms_wallet_config.indexer_url_template
+        ? oms_wallet_config.indexer_url_template
         : "https://{value}-indexer.sequence.app/rpc/Indexer/";
     char *host = NULL;
     HttpClient *c = NULL;
@@ -45,10 +45,10 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
         return error_out;
     }
 
-    http_add_sequence_access_key(c);
+    http_add_oms_wallet_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
-    json = sequence_build_get_token_balances_args(contract_address, wallet_address, include_metadata);
+    json = oms_wallet_build_get_token_balances_args(contract_address, wallet_address, include_metadata);
     if (!json) {
         http_client_destroy(c);
         free(host);
@@ -66,7 +66,7 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
         return error_out;
     }
 
-    parsed = sequence_build_get_token_balances_return(r.body);
+    parsed = oms_wallet_build_get_token_balances_return(r.body);
 
     http_response_free(&r);
     http_client_destroy(c);
@@ -78,11 +78,11 @@ SequenceGetTokenBalancesReturn *sequence_get_token_balances(
     return parsed;
 }
 
-void free_sequence_token_balances_return(SequenceGetTokenBalancesReturn *data) {
+void oms_wallet_free_token_balances_return(OmsWalletGetTokenBalancesReturn *data) {
     if (!data) return;
 
     for (int i = 0; i < data->balancesCount; i++) {
-        SequenceBalance *b = &data->balances[i];
+        OmsWalletBalance *b = &data->balances[i];
         free(b->contractType);
         free(b->contractAddress);
         free(b->accountAddress);

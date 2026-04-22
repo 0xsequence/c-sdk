@@ -1,18 +1,18 @@
-#ifndef SEQUENCE_GET_TOKEN_BALANCES_RETURN_H
-#define SEQUENCE_GET_TOKEN_BALANCES_RETURN_H
+#ifndef OMS_WALLET_GET_TOKEN_BALANCES_RETURN_H
+#define OMS_WALLET_GET_TOKEN_BALANCES_RETURN_H
 
 #include "../models/balance.h"
 #include "../models/page.h"
 
 typedef struct {
     int status;
-    SequencePage page;
-    SequenceBalance *balances;
+    OmsWalletPage page;
+    OmsWalletBalance *balances;
     int balancesCount;
-} SequenceGetTokenBalancesReturn;
+} OmsWalletGetTokenBalancesReturn;
 
-SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const char *json);
+OmsWalletGetTokenBalancesReturn *oms_wallet_build_get_token_balances_return(const char *json);
 
-void log_sequence_get_token_balances_return(const SequenceGetTokenBalancesReturn *res);
+void log_oms_wallet_get_token_balances_return(const OmsWalletGetTokenBalancesReturn *res);
 
 #endif

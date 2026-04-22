@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_STRING_UTILS_H
-#define SEQUENCE_STRING_UTILS_H
+#ifndef OMS_WALLET_STRING_UTILS_H
+#define OMS_WALLET_STRING_UTILS_H
 
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sequence-c-sdk C)
+project(oms_wallet_c_sdk C)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -13,19 +13,19 @@ pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
 pkg_check_modules(CJSON REQUIRED IMPORTED_TARGET libcjson)
 link_directories(${SECP256K1_LIBRARY_DIRS})
 
-option(SEQUENCE_BUILD_DEMO "Build demo target" ON)
-option(SEQUENCE_BUILD_CLI "Build CLI target" ON)
+option(OMS_WALLET_BUILD_DEMO "Build demo target" ON)
+option(OMS_WALLET_BUILD_CLI "Build CLI target" ON)
 
 # ---- Library ----
 
-set(SEQUENCE_SDK_SOURCES
+set(OMS_WALLET_SDK_SOURCES
         lib/generated/waas/waas.gen.c
-        lib/runtime/sequence_runtime.c
-        lib/wallet/sequence_auth.c
-        lib/wallet/sequence_config.c
-        lib/wallet/sequence_request_signing.c
-        lib/wallet/sequence_wallet_ops.c
-        lib/wallet/sequence_wallet_shared.c
+        lib/runtime/oms_wallet_runtime.c
+        lib/wallet/oms_wallet_auth.c
+        lib/wallet/oms_wallet_config.c
+        lib/wallet/oms_wallet_request_signing.c
+        lib/wallet/oms_wallet_ops.c
+        lib/wallet/oms_wallet_shared.c
         lib/networking/http_client.c
         lib/networking/http_client_common.c
         lib/infrastructure/is_valid_message_signature.c
@@ -47,33 +47,33 @@ set(SEQUENCE_SDK_SOURCES
 )
 
 if(APPLE)
-    list(APPEND SEQUENCE_SDK_SOURCES
+    list(APPEND OMS_WALLET_SDK_SOURCES
             lib/storage/secure_storage.c
     )
 elseif(UNIX)
-    list(APPEND SEQUENCE_SDK_SOURCES
+    list(APPEND OMS_WALLET_SDK_SOURCES
             lib/storage/secure_storage_posix.c
     )
 else()
-    message(FATAL_ERROR "sequence-c-sdk currently supports macOS and Linux only")
+    message(FATAL_ERROR "oms-wallet-c-sdk currently supports macOS and Linux only")
 endif()
 
-add_library(sequence_c_sdk ${SEQUENCE_SDK_SOURCES})
+add_library(oms_wallet_c_sdk ${OMS_WALLET_SDK_SOURCES})
 
-target_include_directories(sequence_c_sdk
+target_include_directories(oms_wallet_c_sdk
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/oms-wallet>
         ${SECP256K1_INCLUDE_DIRS}
         ${CJSON_INCLUDE_DIRS}
 )
 
-target_compile_options(sequence_c_sdk PUBLIC
+target_compile_options(oms_wallet_c_sdk PUBLIC
         ${SECP256K1_CFLAGS_OTHER}
         ${CJSON_CFLAGS_OTHER}
 )
 
-target_link_libraries(sequence_c_sdk PUBLIC
+target_link_libraries(oms_wallet_c_sdk PUBLIC
         CURL::libcurl
         PkgConfig::CJSON
         ${SECP256K1_LIBRARIES}
@@ -81,7 +81,7 @@ target_link_libraries(sequence_c_sdk PUBLIC
 
 # macOS frameworks
 if(APPLE)
-    target_link_libraries(sequence_c_sdk PUBLIC
+    target_link_libraries(oms_wallet_c_sdk PUBLIC
             "-framework Security"
             "-framework CoreFoundation"
     )
@@ -89,59 +89,61 @@ endif()
 
 # ---- Demo ----
 
-set(SEQUENCE_RUNTIME_TARGETS "")
+set(OMS_WALLET_RUNTIME_TARGETS "")
 
-if(SEQUENCE_BUILD_DEMO)
-    add_executable(sequence-demo demo.c)
-    target_link_libraries(sequence-demo PRIVATE sequence_c_sdk)
-    list(APPEND SEQUENCE_RUNTIME_TARGETS sequence-demo)
+if(OMS_WALLET_BUILD_DEMO)
+    add_executable(oms_wallet_demo demo.c)
+    target_link_libraries(oms_wallet_demo PRIVATE oms_wallet_c_sdk)
+    set_target_properties(oms_wallet_demo PROPERTIES OUTPUT_NAME "oms-wallet-demo")
+    list(APPEND OMS_WALLET_RUNTIME_TARGETS oms_wallet_demo)
 endif()
 
 # ---- CLI ----
 
-if(SEQUENCE_BUILD_CLI)
-    add_executable(sequence-wallet cli.c)
-    target_link_libraries(sequence-wallet PRIVATE sequence_c_sdk)
-    list(APPEND SEQUENCE_RUNTIME_TARGETS sequence-wallet)
+if(OMS_WALLET_BUILD_CLI)
+    add_executable(oms_wallet_cli cli.c)
+    target_link_libraries(oms_wallet_cli PRIVATE oms_wallet_c_sdk)
+    set_target_properties(oms_wallet_cli PROPERTIES OUTPUT_NAME "oms-wallet")
+    list(APPEND OMS_WALLET_RUNTIME_TARGETS oms_wallet_cli)
 endif()
 
 # ---- Install ----
 
-install(TARGETS sequence_c_sdk
-        EXPORT sequence-c-sdk-targets
+install(TARGETS oms_wallet_c_sdk
+        EXPORT oms-wallet-c-sdk-targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-if(SEQUENCE_RUNTIME_TARGETS)
-    install(TARGETS ${SEQUENCE_RUNTIME_TARGETS}
+if(OMS_WALLET_RUNTIME_TARGETS)
+    install(TARGETS ${OMS_WALLET_RUNTIME_TARGETS}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 install(DIRECTORY lib/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sequence
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/oms-wallet
         FILES_MATCHING PATTERN "*.h"
-        PATTERN "sequence_wallet_internal.h" EXCLUDE)
+        PATTERN "oms_wallet_internal.h" EXCLUDE)
 
-install(EXPORT sequence-c-sdk-targets
-        FILE sequence-c-sdk-targets.cmake
-        NAMESPACE sequence::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sequence-c-sdk)
+install(EXPORT oms-wallet-c-sdk-targets
+        FILE oms-wallet-c-sdk-targets.cmake
+        NAMESPACE oms_wallet::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/oms-wallet-c-sdk)
 
 if(BUILD_TESTING)
-    add_executable(sequence_request_signing_test
-            tests/sequence_request_signing_test.c)
-    target_link_libraries(sequence_request_signing_test PRIVATE sequence_c_sdk)
-    add_test(NAME sequence_request_signing_test COMMAND sequence_request_signing_test)
+    add_executable(oms_wallet_request_signing_test
+            tests/oms_wallet_request_signing_test.c)
+    target_link_libraries(oms_wallet_request_signing_test PRIVATE oms_wallet_c_sdk)
+    add_test(NAME oms_wallet_request_signing_test COMMAND oms_wallet_request_signing_test)
 
     add_executable(timestamps_test
             tests/timestamps_test.c)
-    target_link_libraries(timestamps_test PRIVATE sequence_c_sdk)
+    target_link_libraries(timestamps_test PRIVATE oms_wallet_c_sdk)
     add_test(NAME timestamps_test COMMAND timestamps_test)
 
     if(UNIX AND NOT APPLE)
         add_executable(secure_storage_test
                 tests/secure_storage_test.c)
-        target_link_libraries(secure_storage_test PRIVATE sequence_c_sdk)
+        target_link_libraries(secure_storage_test PRIVATE oms_wallet_c_sdk)
         add_test(NAME secure_storage_test COMMAND secure_storage_test)
     endif()
 endif()

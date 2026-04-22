@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-char *sequence_build_get_token_balances_args(
+char *oms_wallet_build_get_token_balances_args(
     const char *contract_address,
     const char *account_address,
     bool include_metadata)

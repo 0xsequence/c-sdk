@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_SIGN_MESSAGE_H
-#define SEQUENCE_SIGN_MESSAGE_H
+#ifndef OMS_WALLET_SIGN_MESSAGE_H
+#define OMS_WALLET_SIGN_MESSAGE_H
 
 #include <stdint.h>
 #include <secp256k1.h>

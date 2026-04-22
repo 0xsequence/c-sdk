@@ -1,5 +1,5 @@
 class Wallet < Formula
-  desc "Sequence C SDK"
+  desc "OmsWallet C SDK"
   homepage "https://github.com/0xsequence/c-sdk"
   url "https://github.com/0xsequence/c-sdk/archive/refs/tags/v0.3.0.tar.gz"
   sha256 "e4949620a97b2952ec774280df2344c5a047d4e96a19c8019f96e9a0c365996c"
@@ -18,6 +18,6 @@ class Wallet < Formula
 
   test do
     # Basic smoke test
-    assert_match "Usage", shell_output("#{bin}/sequence-wallet --help")
+    assert_match "Usage", shell_output("#{bin}/oms-wallet --help")
   end
 end

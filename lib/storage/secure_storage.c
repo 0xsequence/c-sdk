@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define SERVICE_NAME "0xsequence.c-sdk.service"
+#define SERVICE_NAME "io.omswallet.c-sdk.service"
 
 /* -------------------------------------------------- */
 /* Internal helpers                                  */

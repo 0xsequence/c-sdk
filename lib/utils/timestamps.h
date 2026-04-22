@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_TIMESTAMPS_H
-#define SEQUENCE_TIMESTAMPS_H
+#ifndef OMS_WALLET_TIMESTAMPS_H
+#define OMS_WALLET_TIMESTAMPS_H
 
 long timestamp_now_seconds();
 

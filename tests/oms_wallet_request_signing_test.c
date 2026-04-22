@@ -6,7 +6,7 @@
 #include "utils/base64url.h"
 #include "utils/sha256.h"
 #include "utils/string_utils.h"
-#include "wallet/sequence_request_signing.h"
+#include "wallet/oms_wallet_request_signing.h"
 
 static const uint8_t test_seckey[32] = {
     0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
@@ -415,8 +415,8 @@ static char *build_complete_auth_answer(const complete_auth_payload_context *pay
         exit(1);
     }
 
-    sequence_sha256((const uint8_t *)pre_hash_answer, strlen(pre_hash_answer), digest);
-    answer = sequence_base64url_encode_unpadded(digest, sizeof(digest));
+    oms_wallet_sha256((const uint8_t *)pre_hash_answer, strlen(pre_hash_answer), digest);
+    answer = oms_wallet_base64url_encode_unpadded(digest, sizeof(digest));
     free(pre_hash_answer);
     return answer;
 }
@@ -435,15 +435,15 @@ static void run_signing_vector(const signing_vector *vector)
     char label[128];
     char *answer = NULL;
     char *payload = vector->build_payload(vector->payload_context);
-    char *preimage = sequence_build_wallet_request_preimage(
+    char *preimage = oms_wallet_build_wallet_request_preimage(
         vector->endpoint,
         vector->nonce,
         payload);
-    char *digest = sequence_wallet_request_preimage_digest_hex(preimage);
-    char *address = sequence_wallet_address_from_seckey(test_seckey);
-    char *signature = sequence_sign_wallet_digest_hex_eip191(test_seckey, digest);
-    char *signature_from_preimage = sequence_sign_wallet_request_preimage(test_seckey, preimage);
-    char *header = sequence_build_wallet_authorization_header(
+    char *digest = oms_wallet_request_preimage_digest_hex(preimage);
+    char *address = oms_wallet_address_from_seckey(test_seckey);
+    char *signature = oms_wallet_sign_wallet_digest_hex_eip191(test_seckey, digest);
+    char *signature_from_preimage = oms_wallet_sign_wallet_request_preimage(test_seckey, preimage);
+    char *header = oms_wallet_build_wallet_authorization_header(
         vector->scope,
         address,
         vector->nonce,
@@ -621,6 +621,6 @@ int main(void)
     }
 
     test_complete_auth_answer_hash_vector();
-    printf("sequence_request_signing_test passed\n");
+    printf("oms_wallet_request_signing_test passed\n");
     return 0;
 }

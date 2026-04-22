@@ -1,5 +1,5 @@
-#include "sequence_connector.h"
-#include "sequence_wallet_internal.h"
+#include "oms_wallet.h"
+#include "oms_wallet_internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +9,7 @@
 #include "utils/sha256.h"
 #include "utils/string_utils.h"
 
-static char *sequence_hash_auth_answer(const char *challenge, const char *answer)
+static char *oms_wallet_hash_auth_answer(const char *challenge, const char *answer)
 {
     char *preimage;
     uint8_t digest[32];
@@ -26,13 +26,13 @@ static char *sequence_hash_auth_answer(const char *challenge, const char *answer
         return NULL;
     }
 
-    sequence_sha256((const uint8_t *)preimage, strlen(preimage), digest);
-    encoded = sequence_base64url_encode_unpadded(digest, sizeof(digest));
+    oms_wallet_sha256((const uint8_t *)preimage, strlen(preimage), digest);
+    encoded = oms_wallet_base64url_encode_unpadded(digest, sizeof(digest));
     free(preimage);
     return encoded;
 }
 
-int sequence_restore_session()
+int oms_wallet_restore_session()
 {
     uint8_t seckey[32];
     eoa_wallet_t *restored_signer;
@@ -69,7 +69,7 @@ int sequence_restore_session()
 
     cur_signer = restored_signer;
 
-    secure_store_read_string("sequence_wallet_id", &restored_wallet_id);
+    secure_store_read_string("oms_wallet_id", &restored_wallet_id);
     if (restored_wallet_id && restored_wallet_id[0] != '\0')
     {
         cur_wallet_id = restored_wallet_id;
@@ -82,18 +82,18 @@ int sequence_restore_session()
     return 1;
 }
 
-int sequence_sign_in_with_email(const char* email)
+int oms_wallet_start_email_sign_in(const char *email)
 {
     waas_commit_verifier_request params;
     waas_wallet_commit_verifier_request request;
     waas_wallet_commit_verifier_response response;
-    sequence_wallet_rpc_context rpc;
+    oms_wallet_rpc_context rpc;
     int status = -1;
 
     waas_commit_verifier_request_init(&params);
     waas_wallet_commit_verifier_request_init(&request);
     waas_wallet_commit_verifier_response_init(&response);
-    sequence_wallet_rpc_context_init(&rpc);
+    oms_wallet_rpc_context_init(&rpc);
 
     clear_current_signer();
     free(cur_challenge);
@@ -121,7 +121,7 @@ int sequence_sign_in_with_email(const char* email)
     params.handle = waas_strdup(email);
     if (!params.handle)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
             "failed to allocate CommitVerifier handle",
@@ -130,19 +130,19 @@ int sequence_sign_in_with_email(const char* email)
     }
     request.commit_verifier_request = &params;
 
-    if (sequence_wallet_rpc_execute(
+    if (oms_wallet_rpc_execute(
             &rpc,
             &request,
             &response,
-            sequence_commit_verifier_prepare_request,
-            sequence_commit_verifier_parse_response) != 0)
+            oms_wallet_commit_verifier_prepare_request,
+            oms_wallet_commit_verifier_parse_response) != 0)
     {
         goto cleanup;
     }
 
     if (!response.commit_verifier_response)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
             "CommitVerifier response missing payload",
@@ -154,7 +154,7 @@ int sequence_sign_in_with_email(const char* email)
     cur_verifier = waas_strdup(response.commit_verifier_response->verifier);
     if (!cur_challenge || !cur_verifier)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
             "failed to copy CommitVerifier response",
@@ -188,23 +188,23 @@ cleanup:
         cur_verifier = NULL;
     }
 
-    sequence_wallet_rpc_context_free(&rpc);
+    oms_wallet_rpc_context_free(&rpc);
     waas_wallet_commit_verifier_response_free(&response);
     waas_commit_verifier_request_free(&params);
     return status;
 }
 
-waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
-    const char* code)
+waas_wallet_complete_auth_response *oms_wallet_complete_email_sign_in(
+    const char *code)
 {
     waas_complete_auth_request params;
     waas_wallet_complete_auth_request request;
     waas_wallet_complete_auth_response *response = NULL;
-    sequence_wallet_rpc_context rpc;
+    oms_wallet_rpc_context rpc;
     char *hashed_answer = NULL;
     int status = -1;
 
-    if (!sequence_require_signer_initialized())
+    if (!oms_wallet_require_signer_initialized())
     {
         return NULL;
     }
@@ -225,12 +225,12 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
 
     waas_complete_auth_request_init(&params);
     waas_wallet_complete_auth_request_init(&request);
-    sequence_wallet_rpc_context_init(&rpc);
+    oms_wallet_rpc_context_init(&rpc);
 
     response = calloc(1, sizeof(*response));
     if (!response)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
             "failed to allocate CompleteAuth response",
@@ -239,7 +239,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     }
     waas_wallet_complete_auth_response_init(response);
 
-    hashed_answer = sequence_hash_auth_answer(cur_challenge, code);
+    hashed_answer = oms_wallet_hash_auth_answer(cur_challenge, code);
 
     params.identity_type = WAAS_IDENTITY_TYPE_EMAIL;
     params.auth_mode = WAAS_AUTH_MODE_OTP;
@@ -247,7 +247,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     params.answer = waas_strdup(hashed_answer);
     if (!hashed_answer || !params.verifier || !params.answer)
     {
-        sequence_set_waas_error(
+        oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
             "failed to prepare CompleteAuth request",
@@ -256,12 +256,12 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     }
     request.complete_auth_request = &params;
 
-    if (sequence_wallet_rpc_execute(
+    if (oms_wallet_rpc_execute(
             &rpc,
             &request,
             response,
-            sequence_complete_auth_prepare_request,
-            sequence_complete_auth_parse_response) != 0)
+            oms_wallet_complete_auth_prepare_request,
+            oms_wallet_complete_auth_parse_response) != 0)
     {
         goto cleanup;
     }
@@ -269,7 +269,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
 cleanup:
     if (!response || rpc.error.message)
     {
-        sequence_log_waas_error("CompleteAuth", &rpc.error);
+        oms_wallet_log_waas_error("CompleteAuth", &rpc.error);
     }
 
     status = rpc.error.message ? -1 : 0;
@@ -284,6 +284,6 @@ cleanup:
         }
         response = NULL;
     }
-    sequence_wallet_rpc_context_free(&rpc);
+    oms_wallet_rpc_context_free(&rpc);
     return response;
 }

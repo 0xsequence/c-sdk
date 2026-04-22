@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_SECURE_STORAGE_H
-#define SEQUENCE_SECURE_STORAGE_H
+#ifndef OMS_WALLET_SECURE_STORAGE_H
+#define OMS_WALLET_SECURE_STORAGE_H
 
 #include <stdint.h>
 #include <stddef.h>
