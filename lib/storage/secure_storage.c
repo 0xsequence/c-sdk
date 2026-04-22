@@ -144,6 +144,46 @@ static OSStatus keychain_read(
     return status;
 }
 
+static OSStatus keychain_delete(const char *account)
+{
+    CFStringRef service = cfstr(SERVICE_NAME);
+    CFStringRef account_cf = cfstr(account);
+    OSStatus status;
+
+    const void *query_keys[] = {
+        kSecClass,
+        kSecAttrService,
+        kSecAttrAccount
+    };
+
+    const void *query_vals[] = {
+        kSecClassGenericPassword,
+        service,
+        account_cf
+    };
+
+    CFDictionaryRef query =
+        CFDictionaryCreate(NULL,
+                           query_keys,
+                           query_vals,
+                           3,
+                           &kCFTypeDictionaryKeyCallBacks,
+                           &kCFTypeDictionaryValueCallBacks);
+
+    status = SecItemDelete(query);
+
+    CFRelease(service);
+    CFRelease(account_cf);
+    CFRelease(query);
+
+    if (status == errSecItemNotFound)
+    {
+        return errSecSuccess;
+    }
+
+    return status;
+}
+
 /* -------------------------------------------------- */
 /* Public API                                        */
 /* -------------------------------------------------- */
@@ -186,6 +226,14 @@ int secure_store_read_string(const char *key, char **value)
     return errSecSuccess;
 }
 
+int secure_store_delete(const char *key)
+{
+    if (!key)
+        return errSecParam;
+
+    return keychain_delete(key);
+}
+
 int secure_store_write_seckey(const uint8_t seckey[32])
 {
     return keychain_write("seckey", seckey, 32);
@@ -199,7 +247,12 @@ int secure_store_read_seckey(uint8_t seckey[32])
     OSStatus status =
         keychain_read("seckey", &data, &len);
 
-    if (status != errSecSuccess || len != 32) {
+    if (status != errSecSuccess) {
+        free(data);
+        return status;
+    }
+
+    if (len != 32) {
         free(data);
         return errSecDecode;
     }
@@ -208,4 +261,14 @@ int secure_store_read_seckey(uint8_t seckey[32])
     free(data);
 
     return errSecSuccess;
+}
+
+int secure_store_delete_seckey(void)
+{
+    return keychain_delete("seckey");
+}
+
+int secure_store_status_is_not_found(int status)
+{
+    return status == errSecItemNotFound;
 }

@@ -46,9 +46,11 @@ int main(void)
     char seckey_path[PATH_MAX];
     char *storage_dir = mkdtemp(template);
     char *stored_value = NULL;
+    char *missing_value = NULL;
     struct stat st;
     uint8_t seckey_in[32];
     uint8_t seckey_out[32];
+    int status;
 
     if (!storage_dir)
     {
@@ -107,6 +109,48 @@ int main(void)
         return 1;
     }
     free(stored_value);
+
+    status = secure_store_read_string("missing", &missing_value);
+    if (!secure_store_status_is_not_found(status))
+    {
+        fprintf(stderr, "missing-key status mismatch: %d\n", status);
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_delete("challenge") != 0)
+    {
+        fprintf(stderr, "secure_store_delete existing key failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    status = secure_store_read_string("challenge", &missing_value);
+    if (!secure_store_status_is_not_found(status))
+    {
+        fprintf(stderr, "deleted-key status mismatch: %d\n", status);
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_delete("challenge") != 0)
+    {
+        fprintf(stderr, "secure_store_delete missing key failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_write_string("challenge", "second-value") != 0)
+    {
+        fprintf(stderr, "secure_store_write_string rewrite failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
 
     for (size_t i = 0; i < sizeof(seckey_in); ++i)
     {

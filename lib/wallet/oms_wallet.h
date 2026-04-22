@@ -8,7 +8,7 @@ typedef waas_wallet_complete_auth_response oms_wallet_complete_auth_response_t;
 typedef waas_wallet_sign_message_response oms_wallet_sign_message_response_t;
 typedef waas_wallet_send_transaction_response oms_wallet_send_transaction_response_t;
 
-int oms_wallet_restore_session();
+int oms_wallet_restore_session(void);
 
 int oms_wallet_start_email_sign_in(const char *email);
 
@@ -21,7 +21,7 @@ oms_wallet_t *oms_wallet_use_wallet(const char *wallet_id);
 
 oms_wallet_t *oms_wallet_create_wallet_of_type(const char *wallet_type);
 
-oms_wallet_t *oms_wallet_create_wallet();
+oms_wallet_t *oms_wallet_create_wallet(void);
 
 oms_wallet_sign_message_response_t *oms_wallet_sign_message(
     const char *chain_id,

@@ -9,6 +9,77 @@
 #include "utils/sha256.h"
 #include "utils/string_utils.h"
 
+static int oms_wallet_clear_persisted_session_state(void)
+{
+    int status = 0;
+    int next_status = 0;
+
+    next_status = secure_store_delete("challenge");
+    if (next_status != 0 && status == 0)
+    {
+        status = next_status;
+    }
+
+    next_status = secure_store_delete("verifier");
+    if (next_status != 0 && status == 0)
+    {
+        status = next_status;
+    }
+
+    next_status = secure_store_delete_seckey();
+    if (next_status != 0 && status == 0)
+    {
+        status = next_status;
+    }
+
+    next_status = secure_store_delete("oms_wallet_id");
+    if (next_status != 0 && status == 0)
+    {
+        status = next_status;
+    }
+
+    next_status = secure_store_delete("oms_wallet_address");
+    if (next_status != 0 && status == 0)
+    {
+        status = next_status;
+    }
+
+    return status;
+}
+
+static int oms_wallet_persist_pending_sign_in_state(void)
+{
+    int status = oms_wallet_clear_persisted_session_state();
+
+    if (status != 0)
+    {
+        return status;
+    }
+
+    status = secure_store_write_string("challenge", cur_challenge);
+    if (status != 0)
+    {
+        oms_wallet_clear_persisted_session_state();
+        return status;
+    }
+
+    status = secure_store_write_string("verifier", cur_verifier);
+    if (status != 0)
+    {
+        oms_wallet_clear_persisted_session_state();
+        return status;
+    }
+
+    status = secure_store_write_seckey(cur_signer->seckey);
+    if (status != 0)
+    {
+        oms_wallet_clear_persisted_session_state();
+        return status;
+    }
+
+    return 0;
+}
+
 static char *oms_wallet_hash_auth_answer(const char *challenge, const char *answer)
 {
     char *preimage;
@@ -32,16 +103,23 @@ static char *oms_wallet_hash_auth_answer(const char *challenge, const char *answ
     return encoded;
 }
 
-int oms_wallet_restore_session()
+int oms_wallet_restore_session(void)
 {
     uint8_t seckey[32];
     eoa_wallet_t *restored_signer;
     char *restored_wallet_id = NULL;
+    int challenge_status = 0;
+    int verifier_status = 0;
     int status = secure_store_read_seckey(seckey);
 
     if (status != 0)
     {
-        printf("Failed to read seckey (error=%d)\n", status);
+        if (secure_store_status_is_not_found(status))
+        {
+            return 0;
+        }
+
+        fprintf(stderr, "Failed to read stored seckey (error=%d)\n", status);
         return -1;
     }
 
@@ -69,17 +147,60 @@ int oms_wallet_restore_session()
 
     cur_signer = restored_signer;
 
-    secure_store_read_string("oms_wallet_id", &restored_wallet_id);
-    if (restored_wallet_id && restored_wallet_id[0] != '\0')
+    status = secure_store_read_string("oms_wallet_id", &restored_wallet_id);
+    if (status == 0 && restored_wallet_id && restored_wallet_id[0] != '\0')
     {
         cur_wallet_id = restored_wallet_id;
         return 1;
     }
+    if (status != 0 && !secure_store_status_is_not_found(status))
+    {
+        fprintf(stderr, "Failed to read stored wallet id (error=%d)\n", status);
+        free(restored_wallet_id);
+        clear_current_signer();
+        return -1;
+    }
 
     free(restored_wallet_id);
-    secure_store_read_string("challenge", &cur_challenge);
-    secure_store_read_string("verifier", &cur_verifier);
-    return 1;
+    challenge_status = secure_store_read_string("challenge", &cur_challenge);
+    if (challenge_status != 0 && !secure_store_status_is_not_found(challenge_status))
+    {
+        fprintf(stderr, "Failed to read stored challenge (error=%d)\n", challenge_status);
+        clear_current_signer();
+        return -1;
+    }
+
+    verifier_status = secure_store_read_string("verifier", &cur_verifier);
+    if (verifier_status != 0 && !secure_store_status_is_not_found(verifier_status))
+    {
+        fprintf(stderr, "Failed to read stored verifier (error=%d)\n", verifier_status);
+        clear_current_signer();
+        free(cur_challenge);
+        cur_challenge = NULL;
+        return -1;
+    }
+
+    if (challenge_status == 0 && verifier_status == 0 &&
+        cur_challenge && cur_challenge[0] != '\0' &&
+        cur_verifier && cur_verifier[0] != '\0')
+    {
+        return 1;
+    }
+
+    if (secure_store_status_is_not_found(challenge_status) &&
+        secure_store_status_is_not_found(verifier_status))
+    {
+        clear_current_signer();
+        return 0;
+    }
+
+    fprintf(stderr, "Stored sign-in session is incomplete\n");
+    clear_current_signer();
+    free(cur_challenge);
+    cur_challenge = NULL;
+    free(cur_verifier);
+    cur_verifier = NULL;
+    return -1;
 }
 
 int oms_wallet_start_email_sign_in(const char *email)
@@ -89,6 +210,8 @@ int oms_wallet_start_email_sign_in(const char *email)
     waas_wallet_commit_verifier_response response;
     oms_wallet_rpc_context rpc;
     int status = -1;
+    int storage_status = 0;
+    char storage_cause[32];
 
     waas_commit_verifier_request_init(&params);
     waas_wallet_commit_verifier_request_init(&request);
@@ -162,9 +285,17 @@ int oms_wallet_start_email_sign_in(const char *email)
         goto cleanup;
     }
 
-    secure_store_write_string("challenge", cur_challenge);
-    secure_store_write_string("verifier", cur_verifier);
-    secure_store_write_seckey(cur_signer->seckey);
+    storage_status = oms_wallet_persist_pending_sign_in_state();
+    if (storage_status != 0)
+    {
+        snprintf(storage_cause, sizeof(storage_cause), "storage error=%d", storage_status);
+        oms_wallet_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "failed to persist sign-in session state",
+            storage_cause);
+        goto cleanup;
+    }
 
     status = 1;
 

@@ -6,6 +6,8 @@ static size_t g_oms_wallet_runtime_ref_count = 0;
 
 int oms_wallet_runtime_acquire(waas_error *error)
 {
+    /* The generated WAAS runtime is the load-bearing curl owner for both
+     * handwritten HTTP calls and wallet RPC requests. */
     if (g_oms_wallet_runtime_ref_count == 0 && waas_runtime_init(error) != 0)
     {
         return -1;

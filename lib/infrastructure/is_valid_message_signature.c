@@ -85,6 +85,11 @@ OmsWalletIsValidMessageSignatureReturn *oms_wallet_is_valid_message_signature(
     out->status = -1;
     out->is_valid = false;
 
+    if (!oms_wallet_config.api_rpc_url || oms_wallet_config.api_rpc_url[0] == '\0') {
+        fprintf(stderr, "oms_wallet_config_init must be called before verify-signature\n");
+        return out;
+    }
+
     c = http_client_create(oms_wallet_config.api_rpc_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");

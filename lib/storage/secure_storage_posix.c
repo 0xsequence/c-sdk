@@ -472,6 +472,44 @@ int secure_store_read_string(const char *key, char **value)
     return 0;
 }
 
+int secure_store_delete(const char *key)
+{
+    char *filename = NULL;
+    int dir_fd = -1;
+    int status;
+
+    if (!key)
+    {
+        return EINVAL;
+    }
+
+    filename = build_storage_filename(key);
+    if (!filename)
+    {
+        return ENOMEM;
+    }
+
+    status = open_storage_dir(&dir_fd);
+    if (status != 0)
+    {
+        free(filename);
+        return secure_store_status_is_not_found(status) ? 0 : status;
+    }
+
+    if (unlinkat(dir_fd, filename, 0) != 0 && errno != ENOENT)
+    {
+        status = errno;
+    }
+    else
+    {
+        status = 0;
+    }
+
+    close(dir_fd);
+    free(filename);
+    return status;
+}
+
 int secure_store_write_seckey(const uint8_t seckey[32])
 {
     if (!seckey)
@@ -508,4 +546,14 @@ int secure_store_read_seckey(uint8_t seckey[32])
     memcpy(seckey, data, 32);
     free(data);
     return 0;
+}
+
+int secure_store_delete_seckey(void)
+{
+    return secure_store_delete("seckey");
+}
+
+int secure_store_status_is_not_found(int status)
+{
+    return status == ENOENT;
 }

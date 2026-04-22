@@ -232,6 +232,12 @@ can compare payload and header generation byte-for-byte.
 
 ## Vector: CompleteAuth Answer Hash
 
+The CompleteAuth `answer` field is computed as:
+
+```text
+base64url_unpadded(sha256(challenge || code))
+```
+
 - Inputs:
   - challenge: `challenge`
   - code: `123456`

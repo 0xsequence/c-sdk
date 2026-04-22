@@ -72,6 +72,12 @@ requires a different scope.
 
 Call `oms_wallet_config_cleanup()` when you are done with SDK-owned config state.
 
+`oms_wallet_restore_session()` returns:
+
+- `1` when a usable saved session was restored
+- `0` when no usable saved session exists yet
+- `-1` on an actual storage or restore failure
+
 ## Linux Secure Storage
 
 On Linux, secure storage uses a file-per-key backend with:
@@ -79,6 +85,9 @@ On Linux, secure storage uses a file-per-key backend with:
 - directory permissions: `0700`
 - file permissions: `0600`
 - atomic replace on write
+
+This Linux backend is permission-protected filesystem storage. It is not
+encrypted at rest like macOS Keychain storage.
 
 Default storage path:
 
@@ -90,6 +99,15 @@ Override the storage location with:
 ```c
 oms_wallet_config_set_storage_dir("/path/to/app-state");
 ```
+
+Persisted keys used by the SDK:
+
+- `access-key`: CLI-stored access key used to initialize SDK config
+- `seckey`: signer private key for the current session
+- `challenge`: pending email sign-in challenge
+- `verifier`: pending email sign-in verifier
+- `oms_wallet_id`: selected wallet id for follow-up wallet operations
+- `oms_wallet_address`: last selected wallet address
 
 #### Run tests
 
@@ -125,6 +143,9 @@ Current test coverage:
 # Confirm Email sign in and automatically select the first matching wallet,
 # or create one if none exists for that type
 ./build/oms-wallet confirm-email-sign-in --code 123456 --wallet-type ethereum
+
+# Or, omit --wallet-type to list the available wallets returned by CompleteAuth
+./build/oms-wallet confirm-email-sign-in --code 123456
 
 # Optional: switch to a specific wallet later
 ./build/oms-wallet use-wallet --wallet-id <wallet-id>

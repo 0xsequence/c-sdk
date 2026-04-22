@@ -81,6 +81,23 @@ static void print_use_case(const char *title, const char *command) {
     printf(">> %s\n", command);
 }
 
+static int require_restored_session(const char *operation, const char *missing_message)
+{
+    int restore_status = oms_wallet_restore_session();
+
+    if (restore_status > 0) {
+        return 1;
+    }
+
+    if (restore_status == 0) {
+        fprintf(stderr, "%s\n", missing_message);
+    } else {
+        fprintf(stderr, "Failed to restore session for %s\n", operation);
+    }
+
+    return 0;
+}
+
 static void print_first_steps(void) {
     printf("\nLet's get things rolling!\n");
     print_use_case("Get Token Balances", "oms-wallet get-token-balances --chain-id <chain-id> --contract-address <address> --wallet-address <address> --include-metadata");
@@ -280,7 +297,11 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        oms_wallet_restore_session();
+        if (!require_restored_session(
+                "confirm-email-sign-in",
+                "No pending sign-in session found. Start with 'oms-wallet sign-in-with-email --email <email>'.")) {
+            return 1;
+        }
         oms_wallet_complete_auth_response_t *res = oms_wallet_complete_email_sign_in(code);
 
         if (!res) {
@@ -335,7 +356,11 @@ int main(int argc, char **argv) {
     } else if (strcmp(cmd, "create-wallet") == 0) {
         print_header("Create Wallet");
 
-        oms_wallet_restore_session();
+        if (!require_restored_session(
+                "create-wallet",
+                "No saved session found. Complete sign-in first.")) {
+            return 1;
+        }
 
         const char *wallet_type = find_arg_value(argc, argv, "--wallet-type");
 
@@ -361,7 +386,11 @@ int main(int argc, char **argv) {
         const char *wallet_id = find_arg_value(argc, argv, "--wallet-id");
         if (!wallet_id) { fprintf(stderr, "Missing --wallet-id\n"); return 1; }
 
-        oms_wallet_restore_session();
+        if (!require_restored_session(
+                "use-wallet",
+                "No saved session found. Complete sign-in first.")) {
+            return 1;
+        }
         oms_wallet_t *wallet = oms_wallet_use_wallet(wallet_id);
 
         if (!wallet) {
@@ -408,7 +437,11 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        oms_wallet_restore_session();
+        if (!require_restored_session(
+                "sign-message",
+                "No saved session found. Select or create a wallet first.")) {
+            return 1;
+        }
         oms_wallet_sign_message_response_t *signature = oms_wallet_sign_message(chain_id, message);
         printf(
             "Signature: %s\n",
@@ -429,7 +462,11 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        oms_wallet_restore_session();
+        if (!require_restored_session(
+                "send-transaction",
+                "No saved session found. Select or create a wallet first.")) {
+            return 1;
+        }
         oms_wallet_send_transaction_response_t *tx = oms_wallet_send_transaction(chain_id, to, value);
         printf(
             "Transaction Hash: %s\n",
