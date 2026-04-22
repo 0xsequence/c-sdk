@@ -37,8 +37,10 @@ set(SEQUENCE_SDK_SOURCES
         lib/evm/keccak256.c
         lib/evm/sign_message.c
         lib/utils/byte_utils.c
+        lib/utils/base64url.c
         lib/utils/globals.c
         lib/utils/hex_utils.c
+        lib/utils/sha256.c
         lib/utils/string_utils.c
         lib/utils/timestamps.c
         lib/utils/uuid.c

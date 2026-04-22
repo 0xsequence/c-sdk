@@ -16,7 +16,8 @@
 eoa_wallet_t *cur_signer = NULL;
 char *cur_challenge = NULL;
 char *cur_verifier = NULL;
-static const char *g_default_wallet_type = "Ethereum_EOA";
+char *cur_wallet_id = NULL;
+static const char *g_default_wallet_type = "ethereum";
 static const char *g_wallet_rpc_path = "/rpc/Wallet";
 
 const char *sequence_default_wallet_type(void)
@@ -489,49 +490,77 @@ int sequence_finalize_wallet_response(
     }
 
     *wallet_out = sequence_take_wallet(response_wallet);
-    if (!*wallet_out || !(*wallet_out)->address)
+    if (!*wallet_out || !(*wallet_out)->id || !(*wallet_out)->address)
     {
         sequence_set_waas_error(
             &rpc->error,
             "ClientError",
-            operation ? operation : "wallet response missing address",
+            operation ? operation : "wallet response missing id or address",
             NULL);
         return -1;
     }
 
+    free(cur_wallet_id);
+    cur_wallet_id = waas_strdup((*wallet_out)->id);
+    if (!cur_wallet_id)
+    {
+        sequence_set_waas_error(
+            &rpc->error,
+            "ClientError",
+            "failed to persist wallet id in memory",
+            NULL);
+        return -1;
+    }
+
+    free(cur_challenge);
+    cur_challenge = NULL;
+    free(cur_verifier);
+    cur_verifier = NULL;
+
+    secure_store_write_string("sequence_wallet_id", (*wallet_out)->id);
     secure_store_write_string("sequence_wallet_address", (*wallet_out)->address);
     return 0;
 }
 
 int sequence_prepare_wallet_target_params(
     const char *chain_id,
-    char **address_out,
-    const char **network_out,
     char **network_field,
-    char **wallet_field,
+    char **wallet_id_field,
     waas_error *error,
     const char *operation
 )
 {
-    if (!address_out || !network_out || !network_field || !wallet_field)
+    char *wallet_id = NULL;
+    const char *network = NULL;
+
+    if (!network_field || !wallet_id_field)
     {
         return -1;
     }
 
-    secure_store_read_string("sequence_wallet_address", address_out);
-    *network_out = sequence_get_chain_name(chain_id);
-    *network_field = waas_strdup(*network_out);
-    *wallet_field = waas_strdup(*address_out);
+    if (cur_wallet_id && cur_wallet_id[0] != '\0')
+    {
+        wallet_id = waas_strdup(cur_wallet_id);
+    }
+    else
+    {
+        secure_store_read_string("sequence_wallet_id", &wallet_id);
+    }
 
-    if ((*network_out && !*network_field) ||
-        (*address_out && !*wallet_field) ||
-        !*address_out || !*network_out)
+    network = sequence_get_chain_name(chain_id);
+    *network_field = network ? waas_strdup(network) : NULL;
+    *wallet_id_field = wallet_id;
+
+    if ((network && !*network_field) ||
+        !wallet_id || !network)
     {
         sequence_set_waas_error(
             error,
             "ClientError",
             operation ? operation : "failed to prepare wallet target params",
             NULL);
+        free(wallet_id);
+        *wallet_id_field = NULL;
         return -1;
     }
 

@@ -117,6 +117,7 @@ static void print_use_cases(void) {
 
 static void print_wallet_and_use_cases(const waas_wallet *wallet)
 {
+    printf("Sequence Wallet ID: %s\n", wallet->id);
     printf("Sequence Wallet Address: %s\n", wallet->address);
     print_use_cases();
 }
@@ -142,7 +143,7 @@ static waas_wallet *select_wallet_from_auth(
                 strcmp(
                     waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
                     wallet_type) == 0) {
-                wallet = sequence_use_wallet(wallet_type);
+                wallet = sequence_use_wallet(response->complete_auth_response->wallets.items[i]->id);
                 break;
             }
         }
@@ -177,11 +178,11 @@ static void print_help(const char *prog) {
         "  confirm-email-sign-in\n"
         "      Confirm email sign-in\n"
         "      --code <code>\n"
-        "      --wallet-type <Ethereum_SequenceV3 | Ethereum_EOA> (optional)\n"
+        "      --wallet-type <ethereum> (optional)\n"
         "\n"
         "  use-wallet\n"
-        "      Select wallet type\n"
-        "      --wallet-type <wallet-type>\n"
+        "      Select wallet by id\n"
+        "      --wallet-id <wallet-id>\n"
        "\n"
        "  create-wallet\n"
        "      Create a new wallet\n"
@@ -327,15 +328,17 @@ int main(int argc, char **argv) {
                 return 0;
             }
 
-            printf("Please select one of the existing wallet types:\n");
+            printf("Available wallets:\n");
 
             if (res->complete_auth_response && res->complete_auth_response->wallets.items) {
                 for (size_t i = 0; i < res->complete_auth_response->wallets.count; ++i) {
                     if (res->complete_auth_response->wallets.items[i]) {
                         printf(
-                            "Wallet Type %zu: %s\n",
+                            "Wallet %zu: id=%s type=%s address=%s\n",
                             i,
-                            waas_wallet_type_to_string(res->complete_auth_response->wallets.items[i]->type));
+                            res->complete_auth_response->wallets.items[i]->id,
+                            waas_wallet_type_to_string(res->complete_auth_response->wallets.items[i]->type),
+                            res->complete_auth_response->wallets.items[i]->address);
                     }
                 }
             }
@@ -343,7 +346,7 @@ int main(int argc, char **argv) {
             printf("\nUse the following command to select it:\n");
             print_use_case(
                 "Use Wallet",
-                "sequence-wallet use-wallet --wallet-type <Wallet Type>"
+                "sequence-wallet use-wallet --wallet-id <Wallet ID>"
             );
         }
 
@@ -356,9 +359,8 @@ int main(int argc, char **argv) {
 
         const char *walletType = find_arg_value(argc, argv, "--wallet-type");
 
-        // Use sequence v3 wallet type by default
         if (!walletType) {
-            walletType = "Ethereum_SequenceV3";
+            walletType = "ethereum";
         }
 
         waas_wallet *wallet = walletType
@@ -376,14 +378,14 @@ int main(int argc, char **argv) {
     } else if (strcmp(cmd, "use-wallet") == 0) {
         print_header("Use Wallet");
 
-        const char *walletType = find_arg_value(argc, argv, "--wallet-type");
-        if (!walletType) { fprintf(stderr, "Missing --wallet-type\n"); return 1; }
+        const char *walletId = find_arg_value(argc, argv, "--wallet-id");
+        if (!walletId) { fprintf(stderr, "Missing --wallet-id\n"); return 1; }
 
         sequence_restore_session();
-        waas_wallet *wallet = sequence_use_wallet(walletType);
+        waas_wallet *wallet = sequence_use_wallet(walletId);
 
         if (!wallet) {
-            fprintf(stderr, "Failed to use wallet of type '%s'\n", walletType);
+            fprintf(stderr, "Failed to use wallet '%s'\n", walletId);
             return 1;
         }
 

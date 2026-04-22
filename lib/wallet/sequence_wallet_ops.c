@@ -55,7 +55,7 @@ static void *sequence_finish_rpc_response(
     return response;
 }
 
-waas_wallet *sequence_use_wallet(const char* wallet_type)
+waas_wallet *sequence_use_wallet(const char* wallet_id)
 {
     waas_use_wallet_request params;
     waas_wallet_use_wallet_request request;
@@ -73,11 +73,26 @@ waas_wallet *sequence_use_wallet(const char* wallet_type)
     waas_wallet_use_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
 
-    if (sequence_parse_wallet_type(wallet_type, &params.wallet_type, &rpc.error) != 0)
+    if (!wallet_id || wallet_id[0] == '\0')
     {
+        sequence_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "wallet id is required",
+            NULL);
         goto cleanup;
     }
-    params.wallet_index = 0;
+
+    params.wallet_id = waas_strdup(wallet_id);
+    if (wallet_id && !params.wallet_id)
+    {
+        sequence_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "failed to prepare UseWallet request",
+            NULL);
+        goto cleanup;
+    }
     request.use_wallet_request = &params;
 
     if (sequence_wallet_rpc_execute(
@@ -139,7 +154,7 @@ waas_wallet *sequence_create_wallet_of_type(const char* walletType)
     waas_wallet_create_wallet_response_init(&response);
     sequence_wallet_rpc_context_init(&rpc);
 
-    if (sequence_parse_wallet_type(walletType, &params.wallet_type, &rpc.error) != 0)
+    if (sequence_parse_wallet_type(walletType, &params.type, &rpc.error) != 0)
     {
         goto cleanup;
     }
@@ -208,10 +223,8 @@ waas_wallet_sign_message_response *sequence_sign_message(
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
-            &address,
-            &network,
             &params.network,
-            &params.wallet,
+            &params.wallet_id,
             &rpc.error,
             "failed to prepare SignMessage request target") != 0)
     {
@@ -240,7 +253,6 @@ waas_wallet_sign_message_response *sequence_sign_message(
     }
 
 cleanup:
-    free(address);
     waas_sign_message_request_free(&params);
     response = sequence_finish_rpc_response(
         response,
@@ -260,8 +272,6 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     waas_wallet_send_transaction_request request;
     waas_wallet_send_transaction_response *response = NULL;
     sequence_wallet_rpc_context rpc;
-    char *address = NULL;
-    const char *network = NULL;
 
     if (!sequence_require_signer_initialized())
     {
@@ -284,10 +294,8 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
 
     if (sequence_prepare_wallet_target_params(
             chain_id,
-            &address,
-            &network,
             &params.network,
-            &params.wallet,
+            &params.wallet_id,
             &rpc.error,
             "failed to prepare SendTransaction request target") != 0)
     {
@@ -329,7 +337,6 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     }
 
 cleanup:
-    free(address);
     waas_send_transaction_request_free(&params);
     response = sequence_finish_rpc_response(
         response,

@@ -97,7 +97,7 @@ char *sequence_build_wallet_authorization_header(
 )
 {
     const char *header_template =
-        "Authorization: Ethereum_Secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
+        "Authorization: ethereum-secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
     const char *header_args[] = {scope, address, nonce, signature};
     return format_placeholders(header_template, header_args, 4);
 }

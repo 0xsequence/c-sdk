@@ -5,7 +5,7 @@
 
 #define SEQUENCE_DEFAULT_API_RPC_URL "https://api.sequence.app/rpc/API"
 #define SEQUENCE_DEFAULT_WALLET_RPC_URL "https://d1sctl7y41hot5.cloudfront.net/rpc/Wallet"
-#define SEQUENCE_DEFAULT_WALLET_AUTH_SCOPE "@1:test"
+#define SEQUENCE_DEFAULT_WALLET_AUTH_SCOPE "proj_1"
 #define SEQUENCE_DEFAULT_ORIGIN_HEADER "Origin: http://localhost:3000"
 
 sequence_config_t sequence_config = {0};

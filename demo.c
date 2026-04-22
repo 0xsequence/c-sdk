@@ -89,7 +89,7 @@ int main(void) {
                 waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
                 target_wallet_type) == 0)
         {
-            wallet = sequence_use_wallet(target_wallet_type);
+            wallet = sequence_use_wallet(response->complete_auth_response->wallets.items[i]->id);
             break;
         }
     }

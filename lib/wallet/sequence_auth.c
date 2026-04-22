@@ -4,15 +4,39 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "evm/keccak256.h"
 #include "storage/secure_storage.h"
-#include "utils/hex_utils.h"
+#include "utils/base64url.h"
+#include "utils/sha256.h"
 #include "utils/string_utils.h"
+
+static char *sequence_hash_auth_answer(const char *challenge, const char *answer)
+{
+    char *preimage;
+    uint8_t digest[32];
+    char *encoded;
+
+    if (!challenge || !answer)
+    {
+        return NULL;
+    }
+
+    preimage = concat_malloc(challenge, answer);
+    if (!preimage)
+    {
+        return NULL;
+    }
+
+    sequence_sha256((const uint8_t *)preimage, strlen(preimage), digest);
+    encoded = sequence_base64url_encode_unpadded(digest, sizeof(digest));
+    free(preimage);
+    return encoded;
+}
 
 int sequence_restore_session()
 {
     uint8_t seckey[32];
     eoa_wallet_t *restored_signer;
+    char *restored_wallet_id = NULL;
     int status = secure_store_read_seckey(seckey);
 
     if (status != 0)
@@ -40,9 +64,19 @@ int sequence_restore_session()
     cur_challenge = NULL;
     free(cur_verifier);
     cur_verifier = NULL;
+    free(cur_wallet_id);
+    cur_wallet_id = NULL;
 
     cur_signer = restored_signer;
 
+    secure_store_read_string("sequence_wallet_id", &restored_wallet_id);
+    if (restored_wallet_id && restored_wallet_id[0] != '\0')
+    {
+        cur_wallet_id = restored_wallet_id;
+        return 1;
+    }
+
+    free(restored_wallet_id);
     secure_store_read_string("challenge", &cur_challenge);
     secure_store_read_string("verifier", &cur_verifier);
     return 1;
@@ -66,6 +100,8 @@ int sequence_sign_in_with_email(const char* email)
     cur_challenge = NULL;
     free(cur_verifier);
     cur_verifier = NULL;
+    free(cur_wallet_id);
+    cur_wallet_id = NULL;
 
     cur_signer = calloc(1, sizeof(*cur_signer));
     if (!cur_signer)
@@ -165,8 +201,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     waas_wallet_complete_auth_request request;
     waas_wallet_complete_auth_response *response = NULL;
     sequence_wallet_rpc_context rpc;
-    char *pre_hash_answer = NULL;
-    char *hashed_answer_hex = NULL;
+    char *hashed_answer = NULL;
     int status = -1;
 
     if (!sequence_require_signer_initialized())
@@ -204,28 +239,13 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     }
     waas_wallet_complete_auth_response_init(response);
 
-    pre_hash_answer = concat_malloc(cur_challenge, code);
-    if (!pre_hash_answer)
-    {
-        sequence_set_waas_error(
-            &rpc.error,
-            "ClientError",
-            "failed to allocate CompleteAuth challenge answer",
-            NULL);
-        goto cleanup;
-    }
-
-    {
-        uint8_t hashed_to_sign[32];
-        keccak256((const uint8_t*)pre_hash_answer, strlen(pre_hash_answer), hashed_to_sign);
-        hashed_answer_hex = bytes_to_hex(hashed_to_sign, 32);
-    }
+    hashed_answer = sequence_hash_auth_answer(cur_challenge, code);
 
     params.identity_type = WAAS_IDENTITY_TYPE_EMAIL;
     params.auth_mode = WAAS_AUTH_MODE_OTP;
     params.verifier = waas_strdup(cur_verifier);
-    params.answer = waas_strdup(hashed_answer_hex);
-    if (!hashed_answer_hex || !params.verifier || !params.answer)
+    params.answer = waas_strdup(hashed_answer);
+    if (!hashed_answer || !params.verifier || !params.answer)
     {
         sequence_set_waas_error(
             &rpc.error,
@@ -253,8 +273,7 @@ cleanup:
     }
 
     status = rpc.error.message ? -1 : 0;
-    free(hashed_answer_hex);
-    free(pre_hash_answer);
+    free(hashed_answer);
     waas_complete_auth_request_free(&params);
     if (status != 0)
     {

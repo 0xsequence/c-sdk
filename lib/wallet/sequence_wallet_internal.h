@@ -7,6 +7,7 @@
 extern eoa_wallet_t *cur_signer;
 extern char *cur_challenge;
 extern char *cur_verifier;
+extern char *cur_wallet_id;
 
 typedef int (*sequence_prepare_request_fn)(
     const void *request,
@@ -60,10 +61,8 @@ int sequence_finalize_wallet_response(
 );
 int sequence_prepare_wallet_target_params(
     const char *chain_id,
-    char **address_out,
-    const char **network_out,
     char **network_field,
-    char **wallet_field,
+    char **wallet_id_field,
     waas_error *error,
     const char *operation
 );

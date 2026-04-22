@@ -12,7 +12,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
 
 const char *sequence_default_wallet_type(void);
 
-waas_wallet *sequence_use_wallet(const char *walletType);
+waas_wallet *sequence_use_wallet(const char *wallet_id);
 
 waas_wallet *sequence_create_wallet_of_type(const char *walletType);
 
