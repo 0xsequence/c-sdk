@@ -1,4 +1,4 @@
-# Sequence C SDK
+# OmsWallet C SDK
 
 ## Support Matrix
 
@@ -36,23 +36,23 @@ cmake --build build
 Optional targets:
 
 ```shell
-cmake -S . -B build -DSEQUENCE_BUILD_DEMO=OFF -DSEQUENCE_BUILD_CLI=OFF
+cmake -S . -B build -DOMS_WALLET_BUILD_DEMO=OFF -DOMS_WALLET_BUILD_CLI=OFF
 ```
 
-`SEQUENCE_BUILD_DEMO` and `SEQUENCE_BUILD_CLI` only control those runtime
+`OMS_WALLET_BUILD_DEMO` and `OMS_WALLET_BUILD_CLI` only control those runtime
 binaries. They do not disable the library or the test targets.
 
 ## Initialization
 
-Call `sequence_config_init(...)` before using wallet, indexer, or API helpers.
+Call `oms_wallet_config_init(...)` before using wallet, indexer, or API helpers.
 The SDK no longer falls back to built-in runtime URLs when config is unset.
 
 Minimal setup:
 
 ```c
-#include "wallet/sequence_config.h"
+#include <wallet/oms_wallet_config.h>
 
-if (sequence_config_init("YOUR_ACCESS_KEY") != 0) {
+if (oms_wallet_config_init("YOUR_ACCESS_KEY") != 0) {
     /* handle config initialization failure */
 }
 ```
@@ -60,15 +60,23 @@ if (sequence_config_init("YOUR_ACCESS_KEY") != 0) {
 Common overrides:
 
 ```c
-sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
-sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
-sequence_config_set_wallet_rpc_url("https://your-wallet-host/rpc/Wallet");
-sequence_config_set_wallet_auth_scope("@1:test");
-sequence_config_set_origin_header("Origin: http://localhost:3000");
-sequence_config_set_storage_dir("/var/lib/sequence-c-sdk");
+oms_wallet_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
+oms_wallet_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
+oms_wallet_config_set_wallet_rpc_url("https://your-wallet-host/rpc/Wallet");
+oms_wallet_config_set_origin_header("Origin: http://localhost:3000");
+oms_wallet_config_set_storage_dir("/var/lib/oms-wallet-c-sdk");
 ```
 
-Call `sequence_config_cleanup()` when you are done with SDK-owned config state.
+The default wallet auth scope is `proj_1`. Only override it if your environment
+requires a different scope.
+
+Call `oms_wallet_config_cleanup()` when you are done with SDK-owned config state.
+
+`oms_wallet_restore_session()` returns:
+
+- `1` when a usable saved session was restored
+- `0` when no usable saved session exists yet
+- `-1` on an actual storage or restore failure
 
 ## Linux Secure Storage
 
@@ -78,25 +86,28 @@ On Linux, secure storage uses a file-per-key backend with:
 - file permissions: `0600`
 - atomic replace on write
 
+This Linux backend is permission-protected filesystem storage. It is not
+encrypted at rest like macOS Keychain storage.
+
 Default storage path:
 
-- `$HOME/.sequence-c-sdk` when `HOME` is set
-- `./.sequence-c-sdk` otherwise
+- `$HOME/.oms-wallet-c-sdk` when `HOME` is set
+- `./.oms-wallet-c-sdk` otherwise
 
 Override the storage location with:
 
 ```c
-sequence_config_set_storage_dir("/path/to/app-state");
+oms_wallet_config_set_storage_dir("/path/to/app-state");
 ```
 
-#### Temporary generated-client patch
+Persisted keys used by the SDK:
 
-The vendored generated WAAS C client currently includes a small local
-compatibility patch in `lib/generated/waas/waas.gen.c` to tolerate a missing
-`iss` field in the live `CompleteAuth` response.
-
-This is temporary and should be removed once the WAAS API contract is updated
-or fixed upstream.
+- `access-key`: CLI-stored access key used to initialize SDK config
+- `seckey`: signer private key for the current session
+- `challenge`: pending email sign-in challenge
+- `verifier`: pending email sign-in verifier
+- `oms_wallet_id`: selected wallet id for follow-up wallet operations
+- `oms_wallet_address`: last selected wallet address
 
 #### Run tests
 
@@ -104,47 +115,52 @@ or fixed upstream.
 ctest --test-dir build --output-on-failure
 
 # Focused request-signing parity test
-./build/sequence_request_signing_test
+./build/oms_wallet_request_signing_test
 ```
 
 Current test coverage:
 
-- `sequence_request_signing_test`: validates canonical request payloads, preimages, digests, signatures, and authorization headers against checked-in vectors
+- `oms_wallet_request_signing_test`: validates canonical request payloads, preimages, digests, signatures, and authorization headers against checked-in vectors
 - `timestamps_test`: validates nonce monotonicity from `timestamp_next_nonce()`
+- `secure_storage_test`: Linux-only regression test for the POSIX secure-storage backend
 
 #### Run the demo or cli
 
 ```shell
-./build/sequence-demo
+./build/oms-wallet-demo
 ```
 
 ```shell
 # Init
-./build/sequence-wallet init --access-key AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE
+./build/oms-wallet init --access-key AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE
 
 # Get token balances
-./build/sequence-wallet get-token-balances --chain-id 137 --contract-address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet-address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include-metadata
+./build/oms-wallet get-token-balances --chain-id 137 --contract-address 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359 --wallet-address 0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9 --include-metadata
 
 # Sign in with Email
-./build/sequence-wallet sign-in-with-email --email andygruening@gmail.com
+./build/oms-wallet sign-in-with-email --email andygruening@gmail.com
 
-# Confirm Email sign in
-./build/sequence-wallet confirm-email-sign-in --code 123456 --wallet-type Ethereum_EOA
+# Confirm Email sign in and automatically select the first matching wallet,
+# or create one if none exists for that type
+./build/oms-wallet confirm-email-sign-in --code 123456 --wallet-type ethereum
 
-# Use wallet
-./build/sequence-wallet use-wallet --wallet-type Ethereum_EOA
+# Or, omit --wallet-type to list the available wallets returned by CompleteAuth
+./build/oms-wallet confirm-email-sign-in --code 123456
 
-# Create wallet
-./build/sequence-wallet create-wallet
+# Optional: switch to a specific wallet later
+./build/oms-wallet use-wallet --wallet-id <wallet-id>
+
+# Optional: create an additional wallet of the default type (ethereum)
+./build/oms-wallet create-wallet
 
 # Sign message
-./build/sequence-wallet sign-message --chain-id 80002 --message test
+./build/oms-wallet sign-message --chain-id 80002 --message test
 
 # Verify signature
-./build/sequence-wallet verify-signature --chain-id 80002 --wallet-address 0xb7461CcfFfc7378747C6f82804E4dEc04b9E6148 --message test --signature 0x...
+./build/oms-wallet verify-signature --chain-id 80002 --wallet-address 0xb7461CcfFfc7378747C6f82804E4dEc04b9E6148 --message test --signature 0x...
 
 # Send transaction
-./build/sequence-wallet send-transaction --chain-id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 0
+./build/oms-wallet send-transaction --chain-id 80002 --to 0xE5E8B483FfC05967FcFed58cc98D053265af6D99 --value 0
 ```
 
 #### Homebrew version release

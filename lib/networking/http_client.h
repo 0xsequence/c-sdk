@@ -27,7 +27,7 @@ extern "C" {
     /* Optional: set a default header (e.g. "X-API-Key: ..."). Can be called multiple times. */
     int http_client_add_header(HttpClient *c, const char *header_line);
 
-	int http_add_sequence_access_key(HttpClient *c);
+	int http_add_oms_wallet_access_key(HttpClient *c);
 
     /*
      * POST JSON to path (appended to base_url). Example: path="/v1/items"

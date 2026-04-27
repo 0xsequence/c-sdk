@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_KECCAK256_H
-#define SEQUENCE_KECCAK256_H
+#ifndef OMS_WALLET_KECCAK256_H
+#define OMS_WALLET_KECCAK256_H
 
 #include <stdint.h>
 #include <stdlib.h>

@@ -1,20 +1,20 @@
-#ifndef SEQUENCE_IS_VALID_MESSAGE_SIGNATURE_H
-#define SEQUENCE_IS_VALID_MESSAGE_SIGNATURE_H
+#ifndef OMS_WALLET_IS_VALID_MESSAGE_SIGNATURE_H
+#define OMS_WALLET_IS_VALID_MESSAGE_SIGNATURE_H
 
 #include <stdbool.h>
 
 typedef struct {
     int status;
     bool is_valid;
-} SequenceIsValidMessageSignatureReturn;
+} OmsWalletIsValidMessageSignatureReturn;
 
-SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(
+OmsWalletIsValidMessageSignatureReturn *oms_wallet_is_valid_message_signature(
     const char *chain_id,
     const char *wallet_address,
     const char *message,
     const char *signature
 );
 
-void free_sequence_is_valid_message_signature_return(SequenceIsValidMessageSignatureReturn *data);
+void oms_wallet_free_is_valid_message_signature_return(OmsWalletIsValidMessageSignatureReturn *data);
 
 #endif

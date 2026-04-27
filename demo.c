@@ -3,8 +3,8 @@
 #include <string.h>
 #include "lib/infrastructure/is_valid_message_signature.h"
 #include "lib/indexer/get_token_balances.h"
-#include "lib/wallet/sequence_config.h"
-#include "lib/wallet/sequence_connector.h"
+#include "lib/wallet/oms_wallet_config.h"
+#include "lib/wallet/oms_wallet.h"
 
 #define READ_LINE(prompt, buf) do {                                   \
     printf("%s", (prompt));                                           \
@@ -39,13 +39,13 @@ int main(void) {
     // **
 
     char *access_key = "AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE";
-    REQUIRE(sequence_config_init(access_key) == 0, "sequence_config_init failed");
+    REQUIRE(oms_wallet_config_init(access_key) == 0, "oms_wallet_config_init failed");
     REQUIRE(
-        sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/") == 0,
-        "sequence_config_set_indexer_url_template failed");
+        oms_wallet_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/") == 0,
+        "oms_wallet_config_set_indexer_url_template failed");
     REQUIRE(
-        sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API") == 0,
-        "sequence_config_set_api_rpc_url failed");
+        oms_wallet_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API") == 0,
+        "oms_wallet_config_set_api_rpc_url failed");
 
     // **
     // INDEXER
@@ -55,14 +55,14 @@ int main(void) {
     const char *contract_address = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
     const char *wallet_address = "0x8e3E38fe7367dd3b52D1e281E4e8400447C8d8B9";
 
-    SequenceGetTokenBalancesReturn *tokenBalances = sequence_get_token_balances(
+    OmsWalletGetTokenBalancesReturn *tokenBalances = oms_wallet_get_token_balances(
         chain_id,
         contract_address,
         wallet_address,
         true);
 
-    log_sequence_get_token_balances_return(tokenBalances);
-    free_sequence_token_balances_return(tokenBalances);
+    log_oms_wallet_get_token_balances_return(tokenBalances);
+    oms_wallet_free_token_balances_return(tokenBalances);
 
     // **
     // EMAIL AUTHENTICATION
@@ -73,14 +73,14 @@ int main(void) {
     char message[256];
 
     READ_LINE("Enter email: ", email);
-    REQUIRE(sequence_sign_in_with_email(email), "sign_in_with_email failed");
+    REQUIRE(oms_wallet_start_email_sign_in(email), "start_email_sign_in failed");
 
     READ_LINE("Enter code: ", code);
-    waas_wallet_complete_auth_response *response = sequence_confirm_email_sign_in(code);
-    REQUIRE(response, "confirm_email_sign_in failed");
+    oms_wallet_complete_auth_response_t *response = oms_wallet_complete_email_sign_in(code);
+    REQUIRE(response, "complete_email_sign_in failed");
 
-    const char *target_wallet_type = sequence_default_wallet_type();
-    waas_wallet *wallet = NULL;
+    const char *target_wallet_type = oms_wallet_default_wallet_type();
+    oms_wallet_t *wallet = NULL;
 
     for (size_t i = 0; response->complete_auth_response && i < response->complete_auth_response->wallets.count; i++)
     {
@@ -89,19 +89,18 @@ int main(void) {
                 waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
                 target_wallet_type) == 0)
         {
-            wallet = sequence_use_wallet(target_wallet_type);
+            wallet = oms_wallet_use_wallet(response->complete_auth_response->wallets.items[i]->id);
             break;
         }
     }
 
     if (!wallet)
     {
-        wallet = sequence_create_wallet_of_type(target_wallet_type);
+        wallet = oms_wallet_create_wallet_of_type(target_wallet_type);
     }
     REQUIRE(wallet, "wallet selection failed");
 
-    waas_wallet_complete_auth_response_free(response);
-    free(response);
+    oms_wallet_free_complete_auth(response);
 
     printf("Wallet address: %s\n", wallet->address);
 
@@ -110,14 +109,14 @@ int main(void) {
     // **
 
     READ_LINE("Enter message to sign: ", message);
-    waas_wallet_sign_message_response *signature = sequence_sign_message("80002", message);
+    oms_wallet_sign_message_response_t *signature = oms_wallet_sign_message("80002", message);
     REQUIRE(signature, "sign_message failed");
     printf(
         "Signature from '%s': %s\n",
         message,
         (signature && signature->sign_message_response) ? signature->sign_message_response->signature : "(null)");
 
-    SequenceIsValidMessageSignatureReturn *is_valid_message_signature = sequence_is_valid_message_signature(
+    OmsWalletIsValidMessageSignatureReturn *is_valid_message_signature = oms_wallet_is_valid_message_signature(
         "80002",
         wallet->address,
         message,
@@ -125,10 +124,9 @@ int main(void) {
     printf("Signature valid: %s (status=%d)\n",
         (is_valid_message_signature && is_valid_message_signature->is_valid) ? "true" : "false",
         is_valid_message_signature ? is_valid_message_signature->status : -1);
-    free_sequence_is_valid_message_signature_return(is_valid_message_signature);
+    oms_wallet_free_is_valid_message_signature_return(is_valid_message_signature);
     if (signature) {
-        waas_wallet_sign_message_response_free(signature);
-        free(signature);
+        oms_wallet_free_sign_message(signature);
     }
 
     // **
@@ -138,17 +136,15 @@ int main(void) {
     const char *to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99";
     const char *value = "0";
 
-    waas_wallet_send_transaction_response *tx = sequence_send_transaction("80002", to, value);
+    oms_wallet_send_transaction_response_t *tx = oms_wallet_send_transaction("80002", to, value);
     REQUIRE(tx, "send_transaction failed");
     printf(
         "Transaction hash: %s\n",
         (tx && tx->send_transaction_response) ? tx->send_transaction_response->tx_hash : "(null)");
     if (tx) {
-        waas_wallet_send_transaction_response_free(tx);
-        free(tx);
+        oms_wallet_free_send_transaction(tx);
     }
-    waas_wallet_free(wallet);
-    free(wallet);
+    oms_wallet_free(wallet);
 
     return 0;
 }

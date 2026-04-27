@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_EOA_WALLET_H
-#define SEQUENCE_EOA_WALLET_H
+#ifndef OMS_WALLET_EOA_WALLET_H
+#define OMS_WALLET_EOA_WALLET_H
 
 #include <stdint.h>
 #include <stddef.h>

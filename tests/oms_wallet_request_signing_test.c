@@ -3,10 +3,10 @@
 #include <string.h>
 
 #include "generated/waas/waas.gen.h"
-#include "wallet/sequence_request_signing.h"
-#include "evm/keccak256.h"
-#include "utils/hex_utils.h"
+#include "utils/base64url.h"
+#include "utils/sha256.h"
 #include "utils/string_utils.h"
+#include "wallet/oms_wallet_request_signing.h"
 
 static const uint8_t test_seckey[32] = {
     0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
@@ -164,7 +164,7 @@ static char *build_create_wallet_payload(waas_wallet_type wallet_type)
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
-    params.wallet_type = wallet_type;
+    params.type = wallet_type;
     request.create_wallet_request = &params;
 
     if (waas_wallet_create_wallet_prepare_request(&request, &prepared_request, &error) != 0) {
@@ -188,7 +188,7 @@ static char *build_create_wallet_payload(waas_wallet_type wallet_type)
     return payload;
 }
 
-static char *build_use_wallet_payload(waas_wallet_type wallet_type, long long wallet_index)
+static char *build_use_wallet_payload(const char *wallet_id)
 {
     waas_use_wallet_request params;
     waas_wallet_use_wallet_request request;
@@ -201,11 +201,11 @@ static char *build_use_wallet_payload(waas_wallet_type wallet_type, long long wa
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
-    params.wallet_type = wallet_type;
-    params.wallet_index = wallet_index;
+    params.wallet_id = waas_strdup(wallet_id);
     request.use_wallet_request = &params;
 
-    if (waas_wallet_use_wallet_prepare_request(&request, &prepared_request, &error) != 0) {
+    if ((wallet_id && !params.wallet_id) ||
+        waas_wallet_use_wallet_prepare_request(&request, &prepared_request, &error) != 0) {
         fprintf(stderr, "failed to prepare use wallet payload: %s\n",
             error.message ? error.message : "unknown error");
         exit(1);
@@ -226,7 +226,7 @@ static char *build_use_wallet_payload(waas_wallet_type wallet_type, long long wa
     return payload;
 }
 
-static char *build_sign_message_payload(const char *wallet, const char *network, const char *message)
+static char *build_sign_message_payload(const char *wallet_id, const char *network, const char *message)
 {
     waas_sign_message_request params;
     waas_wallet_sign_message_request request;
@@ -240,12 +240,12 @@ static char *build_sign_message_payload(const char *wallet, const char *network,
     waas_error_init(&error);
 
     params.network = waas_strdup(network);
-    params.wallet = waas_strdup(wallet);
+    params.wallet_id = waas_strdup(wallet_id);
     params.message = waas_strdup(message);
     request.sign_message_request = &params;
 
     if ((network && !params.network) ||
-        (wallet && !params.wallet) ||
+        (wallet_id && !params.wallet_id) ||
         (message && !params.message) ||
         waas_wallet_sign_message_prepare_request(&request, &prepared_request, &error) != 0) {
         fprintf(stderr, "failed to prepare sign message payload: %s\n",
@@ -269,7 +269,7 @@ static char *build_sign_message_payload(const char *wallet, const char *network,
 }
 
 static char *build_send_transaction_payload(
-    const char *wallet,
+    const char *wallet_id,
     const char *network,
     const char *to,
     const char *value
@@ -287,14 +287,14 @@ static char *build_send_transaction_payload(
     waas_error_init(&error);
 
     params.network = waas_strdup(network);
-    params.wallet = waas_strdup(wallet);
+    params.wallet_id = waas_strdup(wallet_id);
     params.to = waas_strdup(to);
     params.value = waas_strdup(value);
     params.mode = WAAS_TRANSACTION_MODE_RELAYER;
     request.send_transaction_request = &params;
 
     if ((network && !params.network) ||
-        (wallet && !params.wallet) ||
+        (wallet_id && !params.wallet_id) ||
         (to && !params.to) ||
         (value && !params.value) ||
         waas_wallet_send_transaction_prepare_request(&request, &prepared_request, &error) != 0) {
@@ -325,8 +325,7 @@ typedef struct {
 } commit_verifier_payload_context;
 
 typedef struct {
-    waas_wallet_type wallet_type;
-    long long wallet_index;
+    const char *wallet_id;
 } use_wallet_payload_context;
 
 typedef struct {
@@ -334,13 +333,13 @@ typedef struct {
 } create_wallet_payload_context;
 
 typedef struct {
-    const char *wallet;
+    const char *wallet_id;
     const char *network;
     const char *message;
 } sign_message_payload_context;
 
 typedef struct {
-    const char *wallet;
+    const char *wallet_id;
     const char *network;
     const char *to;
     const char *value;
@@ -377,9 +376,7 @@ static char *build_commit_verifier_payload_from_context(const void *ctx)
 static char *build_use_wallet_payload_from_context(const void *ctx)
 {
     const use_wallet_payload_context *payload_context = ctx;
-    return build_use_wallet_payload(
-        payload_context->wallet_type,
-        payload_context->wallet_index);
+    return build_use_wallet_payload(payload_context->wallet_id);
 }
 
 static char *build_create_wallet_payload_from_context(const void *ctx)
@@ -392,7 +389,7 @@ static char *build_sign_message_payload_from_context(const void *ctx)
 {
     const sign_message_payload_context *payload_context = ctx;
     return build_sign_message_payload(
-        payload_context->wallet,
+        payload_context->wallet_id,
         payload_context->network,
         payload_context->message);
 }
@@ -401,7 +398,7 @@ static char *build_send_transaction_payload_from_context(const void *ctx)
 {
     const send_transaction_payload_context *payload_context = ctx;
     return build_send_transaction_payload(
-        payload_context->wallet,
+        payload_context->wallet_id,
         payload_context->network,
         payload_context->to,
         payload_context->value);
@@ -418,8 +415,8 @@ static char *build_complete_auth_answer(const complete_auth_payload_context *pay
         exit(1);
     }
 
-    keccak256((const uint8_t *)pre_hash_answer, strlen(pre_hash_answer), digest);
-    answer = bytes_to_hex(digest, sizeof(digest));
+    oms_wallet_sha256((const uint8_t *)pre_hash_answer, strlen(pre_hash_answer), digest);
+    answer = oms_wallet_base64url_encode_unpadded(digest, sizeof(digest));
     free(pre_hash_answer);
     return answer;
 }
@@ -438,15 +435,15 @@ static void run_signing_vector(const signing_vector *vector)
     char label[128];
     char *answer = NULL;
     char *payload = vector->build_payload(vector->payload_context);
-    char *preimage = sequence_build_wallet_request_preimage(
+    char *preimage = oms_wallet_build_wallet_request_preimage(
         vector->endpoint,
         vector->nonce,
         payload);
-    char *digest = sequence_wallet_request_preimage_digest_hex(preimage);
-    char *address = sequence_wallet_address_from_seckey(test_seckey);
-    char *signature = sequence_sign_wallet_digest_hex_eip191(test_seckey, digest);
-    char *signature_from_preimage = sequence_sign_wallet_request_preimage(test_seckey, preimage);
-    char *header = sequence_build_wallet_authorization_header(
+    char *digest = oms_wallet_request_preimage_digest_hex(preimage);
+    char *address = oms_wallet_address_from_seckey(test_seckey);
+    char *signature = oms_wallet_sign_wallet_digest_hex_eip191(test_seckey, digest);
+    char *signature_from_preimage = oms_wallet_sign_wallet_request_preimage(test_seckey, preimage);
+    char *header = oms_wallet_build_wallet_authorization_header(
         vector->scope,
         address,
         vector->nonce,
@@ -491,9 +488,9 @@ static void test_complete_auth_answer_hash_vector(void)
         .verifier = "verifier-123"
     };
     const char *expected_answer =
-        "0x752c0acc530a06ddbccae9295f7fd287037f7e2c19272c7506adce3175075fdd";
+        "2oXiHHjzvN3XzdxGxWTK_c9hZf7pom0OovssPvI7q3M";
     const char *expected_payload =
-        "{\"identityType\":\"Email\",\"authMode\":\"OTP\",\"verifier\":\"verifier-123\",\"answer\":\"0x752c0acc530a06ddbccae9295f7fd287037f7e2c19272c7506adce3175075fdd\"}";
+        "{\"identityType\":\"email\",\"authMode\":\"otp\",\"verifier\":\"verifier-123\",\"answer\":\"2oXiHHjzvN3XzdxGxWTK_c9hZf7pom0OovssPvI7q3M\"}";
     char *answer = build_complete_auth_answer(&payload_context);
     char *payload = build_complete_auth_payload(payload_context.verifier, answer);
 
@@ -510,19 +507,18 @@ int main(void)
         .handle = "test@example.com"
     };
     static const use_wallet_payload_context use_wallet_context = {
-        .wallet_type = WAAS_WALLET_TYPE_ETHEREUM_EOA,
-        .wallet_index = 0
+        .wallet_id = "wallet-123"
     };
     static const create_wallet_payload_context create_wallet_context = {
-        .wallet_type = WAAS_WALLET_TYPE_ETHEREUM_EOA
+        .wallet_type = WAAS_WALLET_TYPE_ETHEREUM
     };
     static const sign_message_payload_context sign_message_context = {
-        .wallet = "0x1234567890123456789012345678901234567890",
+        .wallet_id = "wallet-123",
         .network = "amoy",
         .message = "hello"
     };
     static const send_transaction_payload_context send_transaction_context = {
-        .wallet = "0x1234567890123456789012345678901234567890",
+        .wallet_id = "wallet-123",
         .network = "amoy",
         .to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99",
         .value = "1000"
@@ -540,12 +536,12 @@ int main(void)
             .nonce = "1710000003",
             .endpoint = "/CommitVerifier",
             .scope = "@1:test",
-            .expected_payload = "{\"identityType\":\"Email\",\"authMode\":\"OTP\",\"metadata\":{},\"handle\":\"test@example.com\"}",
-            .expected_preimage = "POST /rpc/Wallet/CommitVerifier\nnonce: 1710000003\n\n{\"identityType\":\"Email\",\"authMode\":\"OTP\",\"metadata\":{},\"handle\":\"test@example.com\"}",
-            .expected_digest = "0x9dfdd24b22829750ea37aea91976359049d911f80bcebbc24f55093581915509",
+            .expected_payload = "{\"identityType\":\"email\",\"authMode\":\"otp\",\"metadata\":{},\"handle\":\"test@example.com\"}",
+            .expected_preimage = "POST /rpc/Wallet/CommitVerifier\nnonce: 1710000003\n\n{\"identityType\":\"email\",\"authMode\":\"otp\",\"metadata\":{},\"handle\":\"test@example.com\"}",
+            .expected_digest = "0x033ecc5055e7181814097f54aa68fe7edbb5d3139064c5ae1c801ba1cfbecbcd",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0x48d263e63ce61f5b0095a85ed8c935694a4ad845553223b1953eaeec1f278aab1b5a65a4f8e331d335aea486a63deee684dfa4c62de5529c5fd03c6d356550131c",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000003,sig=\"0x48d263e63ce61f5b0095a85ed8c935694a4ad845553223b1953eaeec1f278aab1b5a65a4f8e331d335aea486a63deee684dfa4c62de5529c5fd03c6d356550131c\""
+            .expected_signature = "0xab6db8389207099165cb01f7748b2451fefc54c29178d9cf71927d59c79c080906e21c50a04205fe7a5c27168377e06f924ae3ba1bcafe0208a1327789229f2d1b",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000003,sig=\"0xab6db8389207099165cb01f7748b2451fefc54c29178d9cf71927d59c79c080906e21c50a04205fe7a5c27168377e06f924ae3ba1bcafe0208a1327789229f2d1b\""
         },
         {
             .name = "use wallet",
@@ -554,12 +550,12 @@ int main(void)
             .nonce = "1710000004",
             .endpoint = "/UseWallet",
             .scope = "@1:test",
-            .expected_payload = "{\"walletType\":\"Ethereum_EOA\",\"walletIndex\":0}",
-            .expected_preimage = "POST /rpc/Wallet/UseWallet\nnonce: 1710000004\n\n{\"walletType\":\"Ethereum_EOA\",\"walletIndex\":0}",
-            .expected_digest = "0x71ab1786fdbae4975163cee47d3501ffb3e0076c426fbcfe1abfcb3bdd0e7ca8",
+            .expected_payload = "{\"walletId\":\"wallet-123\"}",
+            .expected_preimage = "POST /rpc/Wallet/UseWallet\nnonce: 1710000004\n\n{\"walletId\":\"wallet-123\"}",
+            .expected_digest = "0x2e5905f55ee7db83cb3354886c9ea47b3ffda34f979e70019b24a7effb5cecab",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0x052b6dd4327e7e07bf31d2006fc1dd469f94a6024b3fa6e0cb1a1fc4dfb203d968682959b8fa01d5298c6c4dbb3ae0407f575fe7c1405535d38008d0b6d149551b",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000004,sig=\"0x052b6dd4327e7e07bf31d2006fc1dd469f94a6024b3fa6e0cb1a1fc4dfb203d968682959b8fa01d5298c6c4dbb3ae0407f575fe7c1405535d38008d0b6d149551b\""
+            .expected_signature = "0xc9607e16e7ad54ba8702c1f8977c1a2592561788e943a49841037c0b168f49d62b931ad5ec0d9c77a03749a0b0155406b1ab6ed7f8b8b65b19f8a059a774c3ca1c",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000004,sig=\"0xc9607e16e7ad54ba8702c1f8977c1a2592561788e943a49841037c0b168f49d62b931ad5ec0d9c77a03749a0b0155406b1ab6ed7f8b8b65b19f8a059a774c3ca1c\""
         },
         {
             .name = "create wallet",
@@ -568,12 +564,12 @@ int main(void)
             .nonce = "1710000005",
             .endpoint = "/CreateWallet",
             .scope = "@1:test",
-            .expected_payload = "{\"walletType\":\"Ethereum_EOA\"}",
-            .expected_preimage = "POST /rpc/Wallet/CreateWallet\nnonce: 1710000005\n\n{\"walletType\":\"Ethereum_EOA\"}",
-            .expected_digest = "0xef892d0808cdca87608ea5f59c1134b2d8e9f5979171f90bf5d01a70d45c8188",
+            .expected_payload = "{\"type\":\"ethereum\"}",
+            .expected_preimage = "POST /rpc/Wallet/CreateWallet\nnonce: 1710000005\n\n{\"type\":\"ethereum\"}",
+            .expected_digest = "0x1d8cb9d0c5397a5287afa89fc3c6530de756504602692e5f7d7cbdb3ae128e9e",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0x9847f3dd071ca467441c15247ff445ac99911059fd043947ea90a59346f18c3800a3837f023ed2e31dc24f3d4581e287de1f10f015fbcf157df7fdc99c84f0921b",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000005,sig=\"0x9847f3dd071ca467441c15247ff445ac99911059fd043947ea90a59346f18c3800a3837f023ed2e31dc24f3d4581e287de1f10f015fbcf157df7fdc99c84f0921b\""
+            .expected_signature = "0x47ace7468b3084862e4434aefa50dc1b7ded03a32c9d8a8bcaad72f18612f72c6600924f8bafd5161c614f68295d0a0318b33819c494f86b3ab243909ec2378e1c",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000005,sig=\"0x47ace7468b3084862e4434aefa50dc1b7ded03a32c9d8a8bcaad72f18612f72c6600924f8bafd5161c614f68295d0a0318b33819c494f86b3ab243909ec2378e1c\""
         },
         {
             .name = "sign message",
@@ -582,12 +578,12 @@ int main(void)
             .nonce = "1710000000",
             .endpoint = "/SignMessage",
             .scope = "@1:test",
-            .expected_payload = "{\"network\":\"amoy\",\"wallet\":\"0x1234567890123456789012345678901234567890\",\"message\":\"hello\"}",
-            .expected_preimage = "POST /rpc/Wallet/SignMessage\nnonce: 1710000000\n\n{\"network\":\"amoy\",\"wallet\":\"0x1234567890123456789012345678901234567890\",\"message\":\"hello\"}",
-            .expected_digest = "0x17036192bfc9ba35197331ee39fc6774386a2dd49c2d47a49ae39e9b75dab65a",
+            .expected_payload = "{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
+            .expected_preimage = "POST /rpc/Wallet/SignMessage\nnonce: 1710000000\n\n{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
+            .expected_digest = "0x2677991ae3d7458ca5a6332f9a97bd9be243c141588315249d2a3ee8ad63a5b5",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0x33ea7a72ec2d69cd044f0d8cadcbde50aaf9c0e32288824bea74915549543c2e7dc81aa2fa69999d93f5bde0a65efa207aee634e0782f6e489ddcd73ef412eb51b",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000000,sig=\"0x33ea7a72ec2d69cd044f0d8cadcbde50aaf9c0e32288824bea74915549543c2e7dc81aa2fa69999d93f5bde0a65efa207aee634e0782f6e489ddcd73ef412eb51b\""
+            .expected_signature = "0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000000,sig=\"0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b\""
         },
         {
             .name = "send transaction",
@@ -596,12 +592,12 @@ int main(void)
             .nonce = "1710000001",
             .endpoint = "/SendTransaction",
             .scope = "@1:test",
-            .expected_payload = "{\"network\":\"amoy\",\"wallet\":\"0x1234567890123456789012345678901234567890\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"Relayer\"}",
-            .expected_preimage = "POST /rpc/Wallet/SendTransaction\nnonce: 1710000001\n\n{\"network\":\"amoy\",\"wallet\":\"0x1234567890123456789012345678901234567890\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"Relayer\"}",
-            .expected_digest = "0x0af11e533aafd6de32e5469bc719dea6b263322d759b48ba748915af20910399",
+            .expected_payload = "{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
+            .expected_preimage = "POST /rpc/Wallet/SendTransaction\nnonce: 1710000001\n\n{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
+            .expected_digest = "0x0e6f40130b1d5f1f569d41e529062b5fc077beadae4c5abfc06ae62e258d6009",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0xa5d41fb0a5ecc537b6e31f333bac9e13133bd0c144d18bc650b96d19a2e7804b4e87416cc2f92cf2a0b0fb142015de17d3084635f50760a6ea5463addea933f31b",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000001,sig=\"0xa5d41fb0a5ecc537b6e31f333bac9e13133bd0c144d18bc650b96d19a2e7804b4e87416cc2f92cf2a0b0fb142015de17d3084635f50760a6ea5463addea933f31b\""
+            .expected_signature = "0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000001,sig=\"0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c\""
         },
         {
             .name = "complete auth",
@@ -610,13 +606,13 @@ int main(void)
             .nonce = "1710000002",
             .endpoint = "/CompleteAuth",
             .scope = "@1:test",
-            .expected_answer = "0x752c0acc530a06ddbccae9295f7fd287037f7e2c19272c7506adce3175075fdd",
-            .expected_payload = "{\"identityType\":\"Email\",\"authMode\":\"OTP\",\"verifier\":\"verifier-123\",\"answer\":\"0x752c0acc530a06ddbccae9295f7fd287037f7e2c19272c7506adce3175075fdd\"}",
-            .expected_preimage = "POST /rpc/Wallet/CompleteAuth\nnonce: 1710000002\n\n{\"identityType\":\"Email\",\"authMode\":\"OTP\",\"verifier\":\"verifier-123\",\"answer\":\"0x752c0acc530a06ddbccae9295f7fd287037f7e2c19272c7506adce3175075fdd\"}",
-            .expected_digest = "0x804fc970f4bbec10e17544caeb9d643f1024ad1665d6ace7243422d78b60b0c8",
+            .expected_answer = "2oXiHHjzvN3XzdxGxWTK_c9hZf7pom0OovssPvI7q3M",
+            .expected_payload = "{\"identityType\":\"email\",\"authMode\":\"otp\",\"verifier\":\"verifier-123\",\"answer\":\"2oXiHHjzvN3XzdxGxWTK_c9hZf7pom0OovssPvI7q3M\"}",
+            .expected_preimage = "POST /rpc/Wallet/CompleteAuth\nnonce: 1710000002\n\n{\"identityType\":\"email\",\"authMode\":\"otp\",\"verifier\":\"verifier-123\",\"answer\":\"2oXiHHjzvN3XzdxGxWTK_c9hZf7pom0OovssPvI7q3M\"}",
+            .expected_digest = "0x74fcf06516ebe2767cf034bb4d9e73662cad443a243ab86e1e86bad94857270b",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0xecd2af47b35ad15109d44309888787131c36c603d0a9500d7b4c1eaf33231d0c2c6d26270ee0fde89d037815697a08649fdb50a36916b3b35baf3613728e87e11b",
-            .expected_header = "Authorization: Ethereum_Secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000002,sig=\"0xecd2af47b35ad15109d44309888787131c36c603d0a9500d7b4c1eaf33231d0c2c6d26270ee0fde89d037815697a08649fdb50a36916b3b35baf3613728e87e11b\""
+            .expected_signature = "0x925272704a36bdebf2643f884d5270cd5da1a344a0f55c569054757e680381254469b27ed9f816f4727dd5edc235a17ff1dd0c84f495f4dbd0fb291d499d806e1b",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000002,sig=\"0x925272704a36bdebf2643f884d5270cd5da1a344a0f55c569054757e680381254469b27ed9f816f4727dd5edc235a17ff1dd0c84f495f4dbd0fb291d499d806e1b\""
         }
     };
 
@@ -625,6 +621,6 @@ int main(void)
     }
 
     test_complete_auth_answer_hash_vector();
-    printf("sequence_request_signing_test passed\n");
+    printf("oms_wallet_request_signing_test passed\n");
     return 0;
 }

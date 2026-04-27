@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #include "storage/secure_storage.h"
-#include "wallet/sequence_config.h"
+#include "wallet/oms_wallet_config.h"
 
 static void cleanup_storage_dir(const char *path)
 {
@@ -41,14 +41,16 @@ static void cleanup_storage_dir(const char *path)
 
 int main(void)
 {
-    char template[] = "/tmp/sequence-secure-storage-XXXXXX";
+    char template[] = "/tmp/oms-wallet-secure-storage-XXXXXX";
     char challenge_path[PATH_MAX];
     char seckey_path[PATH_MAX];
     char *storage_dir = mkdtemp(template);
     char *stored_value = NULL;
+    char *missing_value = NULL;
     struct stat st;
     uint8_t seckey_in[32];
     uint8_t seckey_out[32];
+    int status;
 
     if (!storage_dir)
     {
@@ -56,17 +58,17 @@ int main(void)
         return 1;
     }
 
-    if (sequence_config_init("test-access-key") != 0)
+    if (oms_wallet_config_init("test-access-key") != 0)
     {
-        fprintf(stderr, "sequence_config_init failed\n");
+        fprintf(stderr, "oms_wallet_config_init failed\n");
         cleanup_storage_dir(storage_dir);
         return 1;
     }
 
-    if (sequence_config_set_storage_dir(storage_dir) != 0)
+    if (oms_wallet_config_set_storage_dir(storage_dir) != 0)
     {
-        fprintf(stderr, "sequence_config_set_storage_dir failed\n");
-        sequence_config_cleanup();
+        fprintf(stderr, "oms_wallet_config_set_storage_dir failed\n");
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -74,7 +76,7 @@ int main(void)
     if (secure_store_write_string("challenge", "first-value") != 0)
     {
         fprintf(stderr, "secure_store_write_string initial write failed\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -82,7 +84,7 @@ int main(void)
     if (secure_store_write_string("challenge", "second-value") != 0)
     {
         fprintf(stderr, "secure_store_write_string overwrite failed\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -93,7 +95,7 @@ int main(void)
     if (secure_store_read_string("challenge", &stored_value) != 0)
     {
         fprintf(stderr, "secure_store_read_string failed\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -102,11 +104,53 @@ int main(void)
     {
         fprintf(stderr, "unexpected stored value: %s\n", stored_value);
         free(stored_value);
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
     free(stored_value);
+
+    status = secure_store_read_string("missing", &missing_value);
+    if (!secure_store_status_is_not_found(status))
+    {
+        fprintf(stderr, "missing-key status mismatch: %d\n", status);
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_delete("challenge") != 0)
+    {
+        fprintf(stderr, "secure_store_delete existing key failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    status = secure_store_read_string("challenge", &missing_value);
+    if (!secure_store_status_is_not_found(status))
+    {
+        fprintf(stderr, "deleted-key status mismatch: %d\n", status);
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_delete("challenge") != 0)
+    {
+        fprintf(stderr, "secure_store_delete missing key failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
+
+    if (secure_store_write_string("challenge", "second-value") != 0)
+    {
+        fprintf(stderr, "secure_store_write_string rewrite failed\n");
+        oms_wallet_config_cleanup();
+        cleanup_storage_dir(storage_dir);
+        return 1;
+    }
 
     for (size_t i = 0; i < sizeof(seckey_in); ++i)
     {
@@ -116,7 +160,7 @@ int main(void)
     if (secure_store_write_seckey(seckey_in) != 0)
     {
         fprintf(stderr, "secure_store_write_seckey failed\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -124,7 +168,7 @@ int main(void)
     if (secure_store_read_seckey(seckey_out) != 0)
     {
         fprintf(stderr, "secure_store_read_seckey failed\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -132,7 +176,7 @@ int main(void)
     if (memcmp(seckey_in, seckey_out, sizeof(seckey_in)) != 0)
     {
         fprintf(stderr, "seckey roundtrip mismatch\n");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -140,7 +184,7 @@ int main(void)
     if (stat(storage_dir, &st) != 0)
     {
         perror("stat storage_dir");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -148,7 +192,7 @@ int main(void)
     if (!S_ISDIR(st.st_mode) || (st.st_mode & 0777) != 0700)
     {
         fprintf(stderr, "storage dir permissions mismatch: %o\n", st.st_mode & 0777);
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -156,7 +200,7 @@ int main(void)
     if (stat(challenge_path, &st) != 0)
     {
         perror("stat challenge_path");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -164,7 +208,7 @@ int main(void)
     if (!S_ISREG(st.st_mode) || (st.st_mode & 0777) != 0600)
     {
         fprintf(stderr, "challenge file permissions mismatch: %o\n", st.st_mode & 0777);
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -172,7 +216,7 @@ int main(void)
     if (stat(seckey_path, &st) != 0)
     {
         perror("stat seckey_path");
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
@@ -180,12 +224,12 @@ int main(void)
     if (!S_ISREG(st.st_mode) || (st.st_mode & 0777) != 0600)
     {
         fprintf(stderr, "seckey file permissions mismatch: %o\n", st.st_mode & 0777);
-        sequence_config_cleanup();
+        oms_wallet_config_cleanup();
         cleanup_storage_dir(storage_dir);
         return 1;
     }
 
-    sequence_config_cleanup();
+    oms_wallet_config_cleanup();
     cleanup_storage_dir(storage_dir);
     printf("secure_storage_test passed\n");
     return 0;

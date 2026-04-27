@@ -1,4 +1,4 @@
-#include "sequence_request_signing.h"
+#include "oms_wallet_request_signing.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -9,7 +9,7 @@
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
-char *sequence_build_wallet_request_preimage(
+char *oms_wallet_build_wallet_request_preimage(
     const char *endpoint,
     const char *nonce,
     const char *payload
@@ -20,7 +20,7 @@ char *sequence_build_wallet_request_preimage(
     return format_placeholders(tmpl, args, 3);
 }
 
-char *sequence_wallet_request_preimage_digest_hex(const char *preimage)
+char *oms_wallet_request_preimage_digest_hex(const char *preimage)
 {
     uint8_t digest[32];
 
@@ -32,7 +32,7 @@ char *sequence_wallet_request_preimage_digest_hex(const char *preimage)
     return bytes_to_hex(digest, sizeof(digest));
 }
 
-char *sequence_wallet_address_from_seckey(const uint8_t seckey32[32])
+char *oms_wallet_address_from_seckey(const uint8_t seckey32[32])
 {
     eoa_wallet_t wallet;
 
@@ -49,7 +49,7 @@ char *sequence_wallet_address_from_seckey(const uint8_t seckey32[32])
     return address;
 }
 
-char *sequence_sign_wallet_digest_hex_eip191(
+char *oms_wallet_sign_wallet_digest_hex_eip191(
     const uint8_t seckey32[32],
     const char *digest_hex
 )
@@ -71,7 +71,7 @@ char *sequence_sign_wallet_digest_hex_eip191(
     return signature;
 }
 
-char *sequence_sign_wallet_request_preimage(
+char *oms_wallet_sign_wallet_request_preimage(
     const uint8_t seckey32[32],
     const char *preimage
 )
@@ -79,17 +79,17 @@ char *sequence_sign_wallet_request_preimage(
     char *digest_hex;
     char *signature;
 
-    digest_hex = sequence_wallet_request_preimage_digest_hex(preimage);
+    digest_hex = oms_wallet_request_preimage_digest_hex(preimage);
     if (!digest_hex) {
         return NULL;
     }
 
-    signature = sequence_sign_wallet_digest_hex_eip191(seckey32, digest_hex);
+    signature = oms_wallet_sign_wallet_digest_hex_eip191(seckey32, digest_hex);
     free(digest_hex);
     return signature;
 }
 
-char *sequence_build_wallet_authorization_header(
+char *oms_wallet_build_wallet_authorization_header(
     const char *scope,
     const char *address,
     const char *nonce,
@@ -97,7 +97,7 @@ char *sequence_build_wallet_authorization_header(
 )
 {
     const char *header_template =
-        "Authorization: Ethereum_Secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
+        "Authorization: ethereum-secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
     const char *header_args[] = {scope, address, nonce, signature};
     return format_placeholders(header_template, header_args, 4);
 }

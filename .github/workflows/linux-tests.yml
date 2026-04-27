@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build -DSEQUENCE_BUILD_DEMO=OFF -DSEQUENCE_BUILD_CLI=OFF
+        run: cmake -S . -B build -DOMS_WALLET_BUILD_DEMO=OFF -DOMS_WALLET_BUILD_CLI=OFF
 
       - name: Build
         run: cmake --build build

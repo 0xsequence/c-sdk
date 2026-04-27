@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../wallet/sequence_config.h"
+#include "../wallet/oms_wallet_config.h"
 
 char *http_dup_cstr(const char *s)
 {
@@ -56,19 +56,19 @@ char *http_join_url(const char *base, const char *path)
     return out;
 }
 
-char *http_sequence_access_key_header(void)
+char *http_oms_wallet_access_key_header(void)
 {
     size_t len;
     char *header;
 
-    if (!sequence_config.access_key || !sequence_config.access_key[0]) {
+    if (!oms_wallet_config.access_key || !oms_wallet_config.access_key[0]) {
         return NULL;
     }
 
-    len = strlen("X-Access-Key: ") + strlen(sequence_config.access_key) + 1;
+    len = strlen("X-Access-Key: ") + strlen(oms_wallet_config.access_key) + 1;
     header = (char *)malloc(len);
     if (!header) return NULL;
 
-    snprintf(header, len, "X-Access-Key: %s", sequence_config.access_key);
+    snprintf(header, len, "X-Access-Key: %s", oms_wallet_config.access_key);
     return header;
 }

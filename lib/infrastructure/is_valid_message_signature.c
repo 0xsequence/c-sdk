@@ -7,7 +7,7 @@
 #include <cjson/cJSON.h>
 
 #include "../networking/http_client.h"
-#include "../wallet/sequence_config.h"
+#include "../wallet/oms_wallet_config.h"
 
 static char *build_is_valid_message_signature_json(
     const char *chain_id,
@@ -42,7 +42,7 @@ static char *build_is_valid_message_signature_json(
 }
 
 static void parse_is_valid_message_signature_response(
-    SequenceIsValidMessageSignatureReturn *out,
+    OmsWalletIsValidMessageSignatureReturn *out,
     const char *json
 )
 {
@@ -66,14 +66,14 @@ static void parse_is_valid_message_signature_response(
     cJSON_Delete(root);
 }
 
-SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(
+OmsWalletIsValidMessageSignatureReturn *oms_wallet_is_valid_message_signature(
     const char *chain_id,
     const char *wallet_address,
     const char *message,
     const char *signature
 )
 {
-    SequenceIsValidMessageSignatureReturn *out = malloc(sizeof *out);
+    OmsWalletIsValidMessageSignatureReturn *out = malloc(sizeof *out);
     HttpClient *c;
     HttpResponse r;
     char *json;
@@ -85,13 +85,18 @@ SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(
     out->status = -1;
     out->is_valid = false;
 
-    c = http_client_create(sequence_config.api_rpc_url);
+    if (!oms_wallet_config.api_rpc_url || oms_wallet_config.api_rpc_url[0] == '\0') {
+        fprintf(stderr, "oms_wallet_config_init must be called before verify-signature\n");
+        return out;
+    }
+
+    c = http_client_create(oms_wallet_config.api_rpc_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return out;
     }
 
-    http_add_sequence_access_key(c);
+    http_add_oms_wallet_access_key(c);
     http_client_add_header(c, "Accept: application/json");
 
     json = build_is_valid_message_signature_json(chain_id, wallet_address, message, signature);
@@ -118,7 +123,7 @@ SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(
     return out;
 }
 
-void free_sequence_is_valid_message_signature_return(SequenceIsValidMessageSignatureReturn *data)
+void oms_wallet_free_is_valid_message_signature_return(OmsWalletIsValidMessageSignatureReturn *data)
 {
     free(data);
 }

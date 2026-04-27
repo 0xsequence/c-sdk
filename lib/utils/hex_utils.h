@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_HEX_UTILS_H
-#define SEQUENCE_HEX_UTILS_H
+#ifndef OMS_WALLET_HEX_UTILS_H
+#define OMS_WALLET_HEX_UTILS_H
 
 #include <stddef.h>
 #include <stdint.h>

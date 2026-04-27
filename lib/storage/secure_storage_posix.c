@@ -11,10 +11,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "wallet/sequence_config.h"
+#include "wallet/oms_wallet_config.h"
 
-#define SEQUENCE_DEFAULT_STORAGE_DIR ".sequence-c-sdk"
-#define SEQUENCE_TMPFILE_MAX_ATTEMPTS 128
+#define OMS_WALLET_DEFAULT_STORAGE_DIR ".oms-wallet-c-sdk"
+#define OMS_WALLET_TMPFILE_MAX_ATTEMPTS 128
 
 static char sanitize_key_char(char c)
 {
@@ -26,10 +26,10 @@ static char sanitize_key_char(char c)
     return '_';
 }
 
-static char *sequence_storage_dir_dup(void)
+static char *oms_wallet_storage_dir_dup(void)
 {
     const char *home;
-    const char *dir = sequence_config.storage_dir;
+    const char *dir = oms_wallet_config.storage_dir;
 
     if (dir && dir[0] != '\0')
     {
@@ -47,26 +47,26 @@ static char *sequence_storage_dir_dup(void)
     home = getenv("HOME");
     if (home && home[0] != '\0')
     {
-        size_t len = strlen(home) + 1 + strlen(SEQUENCE_DEFAULT_STORAGE_DIR) + 1;
+        size_t len = strlen(home) + 1 + strlen(OMS_WALLET_DEFAULT_STORAGE_DIR) + 1;
         char *path = malloc(len);
 
         if (!path)
         {
             return NULL;
         }
-        snprintf(path, len, "%s/%s", home, SEQUENCE_DEFAULT_STORAGE_DIR);
+        snprintf(path, len, "%s/%s", home, OMS_WALLET_DEFAULT_STORAGE_DIR);
         return path;
     }
 
     {
-        size_t len = strlen(SEQUENCE_DEFAULT_STORAGE_DIR) + 1;
+        size_t len = strlen(OMS_WALLET_DEFAULT_STORAGE_DIR) + 1;
         char *path = malloc(len);
 
         if (!path)
         {
             return NULL;
         }
-        memcpy(path, SEQUENCE_DEFAULT_STORAGE_DIR, len);
+        memcpy(path, OMS_WALLET_DEFAULT_STORAGE_DIR, len);
         return path;
     }
 }
@@ -84,7 +84,7 @@ static int open_storage_dir(int *out_fd)
     }
 
     *out_fd = -1;
-    dir = sequence_storage_dir_dup();
+    dir = oms_wallet_storage_dir_dup();
     if (!dir)
     {
         return ENOMEM;
@@ -186,7 +186,7 @@ static int write_file_atomic(int dir_fd, const char *filename, const void *data,
             return ENOMEM;
         }
 
-        for (unsigned int attempt = 0; attempt < SEQUENCE_TMPFILE_MAX_ATTEMPTS; ++attempt)
+        for (unsigned int attempt = 0; attempt < OMS_WALLET_TMPFILE_MAX_ATTEMPTS; ++attempt)
         {
             snprintf(
                 tmp_name,
@@ -472,6 +472,44 @@ int secure_store_read_string(const char *key, char **value)
     return 0;
 }
 
+int secure_store_delete(const char *key)
+{
+    char *filename = NULL;
+    int dir_fd = -1;
+    int status;
+
+    if (!key)
+    {
+        return EINVAL;
+    }
+
+    filename = build_storage_filename(key);
+    if (!filename)
+    {
+        return ENOMEM;
+    }
+
+    status = open_storage_dir(&dir_fd);
+    if (status != 0)
+    {
+        free(filename);
+        return secure_store_status_is_not_found(status) ? 0 : status;
+    }
+
+    if (unlinkat(dir_fd, filename, 0) != 0 && errno != ENOENT)
+    {
+        status = errno;
+    }
+    else
+    {
+        status = 0;
+    }
+
+    close(dir_fd);
+    free(filename);
+    return status;
+}
+
 int secure_store_write_seckey(const uint8_t seckey[32])
 {
     if (!seckey)
@@ -508,4 +546,14 @@ int secure_store_read_seckey(uint8_t seckey[32])
     memcpy(seckey, data, 32);
     free(data);
     return 0;
+}
+
+int secure_store_delete_seckey(void)
+{
+    return secure_store_delete("seckey");
+}
+
+int secure_store_status_is_not_found(int status)
+{
+    return status == ENOENT;
 }

@@ -1,5 +1,5 @@
-#ifndef SEQUENCE_BALANCE_H
-#define SEQUENCE_BALANCE_H
+#ifndef OMS_WALLET_BALANCE_H
+#define OMS_WALLET_BALANCE_H
 
 typedef struct {
     char *contractType;
@@ -10,6 +10,6 @@ typedef struct {
     char *blockHash;
     int blockNumber;
     int chainId;
-} SequenceBalance;
+} OmsWalletBalance;
 
 #endif

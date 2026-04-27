@@ -9,15 +9,15 @@ static char *dup_json_string(cJSON *item) {
     return value ? strdup(value) : NULL;
 }
 
-void log_sequence_get_token_balances_return(
-    const SequenceGetTokenBalancesReturn *res
+void log_oms_wallet_get_token_balances_return(
+    const OmsWalletGetTokenBalancesReturn *res
 ) {
     if (!res) {
-        printf("SequenceGetTokenBalancesReturn: NULL\n");
+        printf("OmsWalletGetTokenBalancesReturn: NULL\n");
         return;
     }
 
-    printf("=== SequenceGetTokenBalancesReturn ===\n");
+    printf("=== OmsWalletGetTokenBalancesReturn ===\n");
 
     printf("Page:\n");
     printf("  page      : %d\n", res->page.page);
@@ -27,7 +27,7 @@ void log_sequence_get_token_balances_return(
     printf("Balances (%d):\n", res->balancesCount);
 
     for (int i = 0; i < res->balancesCount; i++) {
-        const SequenceBalance *b = &res->balances[i];
+        const OmsWalletBalance *b = &res->balances[i];
 
         printf("  [%d]\n", i);
         printf("    contractType    : %s\n", b->contractType ?: "(null)");
@@ -43,13 +43,13 @@ void log_sequence_get_token_balances_return(
     printf("=====================================\n");
 }
 
-SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const char *json) {
+OmsWalletGetTokenBalancesReturn *oms_wallet_build_get_token_balances_return(const char *json) {
     cJSON *root = cJSON_Parse(json);
     if (!root) {
         return NULL;
     }
 
-    SequenceGetTokenBalancesReturn *res = calloc(1, sizeof(SequenceGetTokenBalancesReturn));
+    OmsWalletGetTokenBalancesReturn *res = calloc(1, sizeof(OmsWalletGetTokenBalancesReturn));
     cJSON *page = cJSON_GetObjectItemCaseSensitive(root, "page");
     cJSON *balances = cJSON_GetObjectItemCaseSensitive(root, "balances");
 
@@ -76,7 +76,7 @@ SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const c
 
     if (cJSON_IsArray(balances)) {
         res->balancesCount = cJSON_GetArraySize(balances);
-        res->balances = calloc((size_t)res->balancesCount, sizeof(SequenceBalance));
+        res->balances = calloc((size_t)res->balancesCount, sizeof(OmsWalletBalance));
 
         if (!res->balances) {
             cJSON_Delete(root);
@@ -86,7 +86,7 @@ SequenceGetTokenBalancesReturn *sequence_build_get_token_balances_return(const c
 
         for (int i = 0; i < res->balancesCount; i++) {
             cJSON *b = cJSON_GetArrayItem(balances, i);
-            SequenceBalance *dst = &res->balances[i];
+            OmsWalletBalance *dst = &res->balances[i];
             cJSON *field = NULL;
 
             if (!cJSON_IsObject(b)) {
