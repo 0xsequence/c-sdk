@@ -39,9 +39,13 @@ int main(void) {
     // **
 
     char *access_key = "AQAAAAAAAAK2JvvZhWqZ51riasWBftkrVXE";
-    sequence_config_init(access_key);
-    sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
-    sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
+    REQUIRE(sequence_config_init(access_key) == 0, "sequence_config_init failed");
+    REQUIRE(
+        sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/") == 0,
+        "sequence_config_set_indexer_url_template failed");
+    REQUIRE(
+        sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API") == 0,
+        "sequence_config_set_api_rpc_url failed");
 
     // **
     // INDEXER

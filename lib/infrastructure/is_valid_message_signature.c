@@ -7,7 +7,6 @@
 #include <cjson/cJSON.h>
 
 #include "../networking/http_client.h"
-#include "../utils/globals.h"
 #include "../wallet/sequence_config.h"
 
 static char *build_is_valid_message_signature_json(
@@ -86,7 +85,7 @@ SequenceIsValidMessageSignatureReturn *sequence_is_valid_message_signature(
     out->status = -1;
     out->is_valid = false;
 
-    c = http_client_create(sequence_config.api_rpc_url ? sequence_config.api_rpc_url : g_api_rpc_url);
+    c = http_client_create(sequence_config.api_rpc_url);
     if (!c) {
         fprintf(stderr, "Failed to create HttpClient\n");
         return out;

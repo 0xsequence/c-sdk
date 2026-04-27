@@ -167,6 +167,7 @@ waas_wallet_complete_auth_response *sequence_confirm_email_sign_in(
     sequence_wallet_rpc_context rpc;
     char *pre_hash_answer = NULL;
     char *hashed_answer_hex = NULL;
+    int status = -1;
 
     if (!sequence_require_signer_initialized())
     {
@@ -251,18 +252,19 @@ cleanup:
         sequence_log_waas_error("CompleteAuth", &rpc.error);
     }
 
-    sequence_wallet_rpc_context_free(&rpc);
+    status = rpc.error.message ? -1 : 0;
     free(hashed_answer_hex);
     free(pre_hash_answer);
     waas_complete_auth_request_free(&params);
-    if (rpc.error.message)
+    if (status != 0)
     {
         if (response)
         {
             waas_wallet_complete_auth_response_free(response);
             free(response);
         }
-        return NULL;
+        response = NULL;
     }
+    sequence_wallet_rpc_context_free(&rpc);
     return response;
 }

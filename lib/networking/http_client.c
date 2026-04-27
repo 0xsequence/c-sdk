@@ -1,9 +1,12 @@
 #include "http_client.h"
 #include "http_client_common.h"
+#include "runtime/sequence_runtime.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
+
 #include "../wallet/sequence_config.h"
 
 struct HttpClient {
@@ -50,15 +53,18 @@ static HttpResponse make_error(const char *msg) {
 /* ---------- public API ---------- */
 
 HttpClient* http_client_create(const char *base_url) {
-    /* Safe to call many times; libcurl internally ref-counts in modern builds. */
-    if (curl_global_init(CURL_GLOBAL_DEFAULT) != 0) return NULL;
+    if (sequence_runtime_acquire(NULL) != 0) return NULL;
 
     HttpClient *c = (HttpClient*)calloc(1, sizeof(HttpClient));
-    if (!c) return NULL;
+    if (!c) {
+        sequence_runtime_release();
+        return NULL;
+    }
 
     c->base_url = http_dup_cstr(base_url ? base_url : "");
     if (!c->base_url) {
         free(c);
+        sequence_runtime_release();
         return NULL;
     }
 
@@ -71,9 +77,7 @@ void http_client_destroy(HttpClient *c) {
     free(c->bearer_token);
     if (c->default_headers) curl_slist_free_all(c->default_headers);
     free(c);
-
-    /* If your program creates/destroys many clients, you can move this to program shutdown. */
-    curl_global_cleanup();
+    sequence_runtime_release();
 }
 
 int http_client_set_bearer_token(HttpClient *c, const char *token) {
@@ -101,11 +105,11 @@ int http_add_sequence_access_key(HttpClient *c) {
     header = http_sequence_access_key_header();
     if (!header) return -1;
 
-    /* http_client_add_header is expected to copy or take ownership */
-    http_client_add_header(c, header);
+    if (!http_client_add_header(c, header)) {
+        free(header);
+        return -1;
+    }
 
-    /* If http_client_add_header copies the string, free here.
-       If it takes ownership, DO NOT free. Adjust accordingly. */
     free(header);
 
     return 1;

@@ -7,14 +7,15 @@
 
 #include "evm/keccak256.h"
 
-static void random32(uint8_t out[32]) {
+static int random32(uint8_t out[32]) {
     FILE *f = fopen("/dev/urandom", "rb");
-    if (!f) return;
+    if (!f) return 0;
     if (fread(out, 1, 32, f) != 32) {
         fclose(f);
-        return;
+        return 0;
     }
     fclose(f);
+    return 1;
 }
 
 int eoa_wallet_initialize(eoa_wallet_t *wallet) {
@@ -28,8 +29,10 @@ int eoa_wallet_initialize(eoa_wallet_t *wallet) {
 
     /* 1) Generate valid secret key */
     do {
-        random32(wallet->seckey);
-        /* If random32 failed, seckey might be all zeros; loop will reject it */
+        if (!random32(wallet->seckey)) {
+            eoa_wallet_destroy(wallet);
+            return 0;
+        }
     } while (!secp256k1_ec_seckey_verify(wallet->ctx, wallet->seckey));
 
     /* 2) Derive public key */

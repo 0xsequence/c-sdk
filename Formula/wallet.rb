@@ -7,7 +7,6 @@ class Wallet < Formula
 
   depends_on "cmake" => :build
   depends_on "pkg-config" => :build
-  depends_on "mbedtls"
   depends_on "curl"
   depends_on "cjson"
   depends_on "secp256k1"

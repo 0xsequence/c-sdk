@@ -7,8 +7,8 @@
 
 #include "chains/chain_bindings.h"
 #include "generated/waas/waas.gen.h"
+#include "runtime/sequence_runtime.h"
 #include "storage/secure_storage.h"
-#include "utils/globals.h"
 #include "utils/timestamps.h"
 #include "wallet/sequence_config.h"
 #include "wallet/sequence_request_signing.h"
@@ -18,7 +18,6 @@ char *cur_challenge = NULL;
 char *cur_verifier = NULL;
 static const char *g_default_wallet_type = "Ethereum_EOA";
 static const char *g_wallet_rpc_path = "/rpc/Wallet";
-static size_t g_waas_runtime_ref_count = 0;
 
 const char *sequence_default_wallet_type(void)
 {
@@ -59,31 +58,6 @@ void sequence_set_waas_error(
     error->cause = cause ? waas_strdup(cause) : NULL;
 }
 
-static int sequence_waas_runtime_acquire(waas_error *error)
-{
-    if (g_waas_runtime_ref_count == 0 && waas_runtime_init(error) != 0)
-    {
-        return -1;
-    }
-
-    g_waas_runtime_ref_count++;
-    return 0;
-}
-
-static void sequence_waas_runtime_release(void)
-{
-    if (g_waas_runtime_ref_count == 0)
-    {
-        return;
-    }
-
-    g_waas_runtime_ref_count--;
-    if (g_waas_runtime_ref_count == 0)
-    {
-        waas_runtime_cleanup();
-    }
-}
-
 static char *sequence_build_access_key_header(void)
 {
     char *header;
@@ -110,16 +84,17 @@ static char *sequence_wallet_client_base_url(void)
     char *base_url;
     size_t url_len;
     size_t suffix_len;
+    const char *wallet_rpc_url = sequence_config.wallet_rpc_url;
 
-    if (!g_wallet_api_url)
+    if (!wallet_rpc_url || wallet_rpc_url[0] == '\0')
     {
         return NULL;
     }
 
-    url_len = strlen(g_wallet_api_url);
+    url_len = strlen(wallet_rpc_url);
     suffix_len = strlen(g_wallet_rpc_path);
     if (url_len >= suffix_len &&
-        strcmp(g_wallet_api_url + url_len - suffix_len, g_wallet_rpc_path) == 0)
+        strcmp(wallet_rpc_url + url_len - suffix_len, g_wallet_rpc_path) == 0)
     {
         size_t base_len = url_len - suffix_len;
 
@@ -129,12 +104,12 @@ static char *sequence_wallet_client_base_url(void)
             return NULL;
         }
 
-        memcpy(base_url, g_wallet_api_url, base_len);
+        memcpy(base_url, wallet_rpc_url, base_len);
         base_url[base_len] = '\0';
         return base_url;
     }
 
-    return waas_strdup(g_wallet_api_url);
+    return waas_strdup(wallet_rpc_url);
 }
 
 static const char *sequence_wallet_request_endpoint(
@@ -214,7 +189,7 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     waas_wallet_client *client = NULL;
     int runtime_acquired = 0;
 
-    if (sequence_waas_runtime_acquire(error) != 0)
+    if (sequence_runtime_acquire(error) != 0)
     {
         return NULL;
     }
@@ -238,7 +213,10 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
     {
         headers[headers_count++] = access_key_header;
     }
-    headers[headers_count++] = "Origin: http://localhost:3000";
+    if (sequence_config.origin_header && sequence_config.origin_header[0] != '\0')
+    {
+        headers[headers_count++] = sequence_config.origin_header;
+    }
     headers[headers_count++] = "Accept: application/json";
     options.headers = headers;
     options.headers_count = headers_count;
@@ -256,7 +234,7 @@ static waas_wallet_client *sequence_wallet_client_create(waas_error *error)
 cleanup:
     if (!client && runtime_acquired)
     {
-        sequence_waas_runtime_release();
+        sequence_runtime_release();
     }
     free(base_url);
     free(access_key_header);
@@ -311,7 +289,11 @@ static int sequence_wallet_send_authorized_request(
         sequence_build_wallet_request_preimage(endpoint, nonce, prepared_request->body);
     signature = sequence_sign_wallet_request_preimage(cur_signer->seckey, data_to_sign);
     auth_header =
-        sequence_build_wallet_authorization_header("@1:test", address, nonce, signature);
+        sequence_build_wallet_authorization_header(
+            sequence_config.wallet_auth_scope ? sequence_config.wallet_auth_scope : "",
+            address,
+            nonce,
+            signature);
 
     if (!address || !data_to_sign || !signature || !auth_header)
     {
@@ -376,7 +358,7 @@ void sequence_wallet_rpc_context_free(sequence_wallet_rpc_context *rpc)
     {
         waas_wallet_client_destroy(rpc->client);
         rpc->client = NULL;
-        sequence_waas_runtime_release();
+        sequence_runtime_release();
     }
     waas_http_response_free(&rpc->http_response);
     waas_prepared_request_free(&rpc->prepared_request);

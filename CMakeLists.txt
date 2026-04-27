@@ -6,7 +6,6 @@ set(CMAKE_C_STANDARD 99)
 include(GNUInstallDirs)
 include(CTest)
 
-find_package(MbedTLS CONFIG REQUIRED)
 find_package(CURL REQUIRED)
 
 find_package(PkgConfig REQUIRED)
@@ -14,10 +13,14 @@ pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
 pkg_check_modules(CJSON REQUIRED IMPORTED_TARGET libcjson)
 link_directories(${SECP256K1_LIBRARY_DIRS})
 
+option(SEQUENCE_BUILD_DEMO "Build demo target" ON)
+option(SEQUENCE_BUILD_CLI "Build CLI target" ON)
+
 # ---- Library ----
 
 set(SEQUENCE_SDK_SOURCES
         lib/generated/waas/waas.gen.c
+        lib/runtime/sequence_runtime.c
         lib/wallet/sequence_auth.c
         lib/wallet/sequence_config.c
         lib/wallet/sequence_request_signing.c
@@ -25,14 +28,11 @@ set(SEQUENCE_SDK_SOURCES
         lib/wallet/sequence_wallet_shared.c
         lib/networking/http_client.c
         lib/networking/http_client_common.c
-        lib/networking/http_client_mbed.c
         lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
         lib/indexer/requests/get_token_balances_args.c
         lib/indexer/requests/get_token_balances_return.c
         lib/chains/chain_bindings.c
-        lib/storage/secure_storage.c
-        lib/storage/storage_handler.c
         lib/evm/eoa_wallet.c
         lib/evm/keccak256.c
         lib/evm/sign_message.c
@@ -43,6 +43,18 @@ set(SEQUENCE_SDK_SOURCES
         lib/utils/timestamps.c
         lib/utils/uuid.c
 )
+
+if(APPLE)
+    list(APPEND SEQUENCE_SDK_SOURCES
+            lib/storage/secure_storage.c
+    )
+elseif(UNIX)
+    list(APPEND SEQUENCE_SDK_SOURCES
+            lib/storage/secure_storage_posix.c
+    )
+else()
+    message(FATAL_ERROR "sequence-c-sdk currently supports macOS and Linux only")
+endif()
 
 add_library(sequence_c_sdk ${SEQUENCE_SDK_SOURCES})
 
@@ -60,9 +72,6 @@ target_compile_options(sequence_c_sdk PUBLIC
 )
 
 target_link_libraries(sequence_c_sdk PUBLIC
-        MbedTLS::mbedtls
-        MbedTLS::mbedx509
-        MbedTLS::tfpsacrypto
         CURL::libcurl
         PkgConfig::CJSON
         ${SECP256K1_LIBRARIES}
@@ -78,13 +87,21 @@ endif()
 
 # ---- Demo ----
 
-add_executable(sequence-demo demo.c)
-target_link_libraries(sequence-demo PRIVATE sequence_c_sdk)
+set(SEQUENCE_RUNTIME_TARGETS "")
+
+if(SEQUENCE_BUILD_DEMO)
+    add_executable(sequence-demo demo.c)
+    target_link_libraries(sequence-demo PRIVATE sequence_c_sdk)
+    list(APPEND SEQUENCE_RUNTIME_TARGETS sequence-demo)
+endif()
 
 # ---- CLI ----
 
-add_executable(sequence-wallet cli.c)
-target_link_libraries(sequence-wallet PRIVATE sequence_c_sdk)
+if(SEQUENCE_BUILD_CLI)
+    add_executable(sequence-wallet cli.c)
+    target_link_libraries(sequence-wallet PRIVATE sequence_c_sdk)
+    list(APPEND SEQUENCE_RUNTIME_TARGETS sequence-wallet)
+endif()
 
 # ---- Install ----
 
@@ -93,8 +110,10 @@ install(TARGETS sequence_c_sdk
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-install(TARGETS sequence-demo sequence-wallet
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(SEQUENCE_RUNTIME_TARGETS)
+    install(TARGETS ${SEQUENCE_RUNTIME_TARGETS}
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 
 install(DIRECTORY lib/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sequence
@@ -116,4 +135,11 @@ if(BUILD_TESTING)
             tests/timestamps_test.c)
     target_link_libraries(timestamps_test PRIVATE sequence_c_sdk)
     add_test(NAME timestamps_test COMMAND timestamps_test)
+
+    if(UNIX AND NOT APPLE)
+        add_executable(secure_storage_test
+                tests/secure_storage_test.c)
+        target_link_libraries(secure_storage_test PRIVATE sequence_c_sdk)
+        add_test(NAME secure_storage_test COMMAND secure_storage_test)
+    endif()
 endif()

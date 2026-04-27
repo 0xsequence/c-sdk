@@ -240,14 +240,15 @@ waas_wallet_sign_message_response *sequence_sign_message(
     }
 
 cleanup:
-    sequence_wallet_rpc_context_free(&rpc);
     free(address);
     waas_sign_message_request_free(&params);
-    return sequence_finish_rpc_response(
+    response = sequence_finish_rpc_response(
         response,
         (void (*)(void *))waas_wallet_sign_message_response_free,
         &rpc,
         "SignMessage");
+    sequence_wallet_rpc_context_free(&rpc);
+    return response;
 }
 
 waas_wallet_send_transaction_response *sequence_send_transaction(
@@ -328,12 +329,13 @@ waas_wallet_send_transaction_response *sequence_send_transaction(
     }
 
 cleanup:
-    sequence_wallet_rpc_context_free(&rpc);
     free(address);
     waas_send_transaction_request_free(&params);
-    return sequence_finish_rpc_response(
+    response = sequence_finish_rpc_response(
         response,
         (void (*)(void *))waas_wallet_send_transaction_response_free,
         &rpc,
         "SendTransaction");
+    sequence_wallet_rpc_context_free(&rpc);
+    return response;
 }

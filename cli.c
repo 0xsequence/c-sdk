@@ -43,8 +43,12 @@ static bool has_arg(int argc, char **argv, const char *name)
 static void init_sequence_config_from_storage(void)
 {
     char *access_key = NULL;
+
     secure_store_read_string("access-key", &access_key);
-    sequence_config_init(access_key);
+    if (sequence_config_init(access_key) != 0) {
+        fprintf(stderr, "Failed to initialize sequence config\n");
+    }
+    free(access_key);
 }
 
 static void free_wallet_response(waas_wallet *wallet)

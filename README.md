@@ -1,26 +1,29 @@
 # Sequence C SDK
 
+## Support Matrix
+
+- macOS: supported for development and local testing, uses Keychain-backed secure storage
+- Linux: supported runtime target for normal POSIX + `libcurl` environments, uses POSIX file-backed secure storage
+- HTTP transport: `libcurl` only
+- Session model: single-session and not thread-safe
+
 ## Setup
 
 #### Install dependencies
 
 ```shell
 arch -arm64 brew install cmake pkg-config
-brew install secp256k1 cjson curl mbedtls
+brew install secp256k1 cjson curl
 ```
 
-`mbedtls` is required by the current CMake build. For standard macOS setup, install it with Homebrew.
-If you are building with `armcc` / Arm Compiler, you can also provide `mbedtls` via `vcpkg`:
+On Linux, install the equivalent development packages for `cmake`, `pkg-config`,
+`libcurl`, `libcjson`, and `libsecp256k1`.
+
+Debian / Ubuntu example:
 
 ```shell
-cd ~
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg
-sh bootstrap-vcpkg.sh
-export PATH="$HOME/vcpkg:$PATH"
-
-# If necessary, add it to your CMAKE_PREFIX_PATH
-vcpkg install mbedtls
+apt-get update
+apt-get install -y build-essential cmake pkg-config libcurl4-openssl-dev libcjson-dev libsecp256k1-dev
 ```
 
 #### Initialize the build directory
@@ -28,6 +31,62 @@ vcpkg install mbedtls
 ```shell
 cmake -S . -B build
 cmake --build build
+```
+
+Optional targets:
+
+```shell
+cmake -S . -B build -DSEQUENCE_BUILD_DEMO=OFF -DSEQUENCE_BUILD_CLI=OFF
+```
+
+`SEQUENCE_BUILD_DEMO` and `SEQUENCE_BUILD_CLI` only control those runtime
+binaries. They do not disable the library or the test targets.
+
+## Initialization
+
+Call `sequence_config_init(...)` before using wallet, indexer, or API helpers.
+The SDK no longer falls back to built-in runtime URLs when config is unset.
+
+Minimal setup:
+
+```c
+#include "wallet/sequence_config.h"
+
+if (sequence_config_init("YOUR_ACCESS_KEY") != 0) {
+    /* handle config initialization failure */
+}
+```
+
+Common overrides:
+
+```c
+sequence_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
+sequence_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
+sequence_config_set_wallet_rpc_url("https://your-wallet-host/rpc/Wallet");
+sequence_config_set_wallet_auth_scope("@1:test");
+sequence_config_set_origin_header("Origin: http://localhost:3000");
+sequence_config_set_storage_dir("/var/lib/sequence-c-sdk");
+```
+
+Call `sequence_config_cleanup()` when you are done with SDK-owned config state.
+
+## Linux Secure Storage
+
+On Linux, secure storage uses a file-per-key backend with:
+
+- directory permissions: `0700`
+- file permissions: `0600`
+- atomic replace on write
+
+Default storage path:
+
+- `$HOME/.sequence-c-sdk` when `HOME` is set
+- `./.sequence-c-sdk` otherwise
+
+Override the storage location with:
+
+```c
+sequence_config_set_storage_dir("/path/to/app-state");
 ```
 
 #### Temporary generated-client patch
@@ -47,6 +106,11 @@ ctest --test-dir build --output-on-failure
 # Focused request-signing parity test
 ./build/sequence_request_signing_test
 ```
+
+Current test coverage:
+
+- `sequence_request_signing_test`: validates canonical request payloads, preimages, digests, signatures, and authorization headers against checked-in vectors
+- `timestamps_test`: validates nonce monotonicity from `timestamp_next_nonce()`
 
 #### Run the demo or cli
 
@@ -92,6 +156,8 @@ ctest --test-dir build --output-on-failure
 5. Create a PR and merge it into `master`
 
 #### Homebrew installation
+
+Homebrew is the macOS CLI distribution path.
 
 ```shell
 # Remove tap if needed
