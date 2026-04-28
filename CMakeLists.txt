@@ -6,15 +6,18 @@ set(CMAKE_C_STANDARD 99)
 include(GNUInstallDirs)
 include(CTest)
 
-find_package(CURL REQUIRED)
-
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SECP256K1 REQUIRED libsecp256k1)
 pkg_check_modules(CJSON REQUIRED IMPORTED_TARGET libcjson)
 link_directories(${SECP256K1_LIBRARY_DIRS})
 
+option(OMS_WALLET_ENABLE_CURL_TRANSPORT "Build default libcurl transport" ON)
 option(OMS_WALLET_BUILD_DEMO "Build demo target" ON)
 option(OMS_WALLET_BUILD_CLI "Build CLI target" ON)
+
+if(OMS_WALLET_ENABLE_CURL_TRANSPORT)
+    find_package(CURL REQUIRED)
+endif()
 
 # ---- Library ----
 
@@ -22,11 +25,11 @@ set(OMS_WALLET_SDK_SOURCES
         lib/generated/waas/waas.gen.c
         lib/runtime/oms_wallet_runtime.c
         lib/wallet/oms_wallet_auth.c
+        lib/wallet/oms_wallet_auth_signer.c
         lib/wallet/oms_wallet_config.c
         lib/wallet/oms_wallet_request_signing.c
         lib/wallet/oms_wallet_ops.c
         lib/wallet/oms_wallet_shared.c
-        lib/networking/http_client.c
         lib/networking/http_client_common.c
         lib/infrastructure/is_valid_message_signature.c
         lib/indexer/get_token_balances.c
@@ -45,6 +48,12 @@ set(OMS_WALLET_SDK_SOURCES
         lib/utils/timestamps.c
         lib/utils/uuid.c
 )
+
+if(OMS_WALLET_ENABLE_CURL_TRANSPORT)
+    list(APPEND OMS_WALLET_SDK_SOURCES
+            lib/networking/http_client.c
+    )
+endif()
 
 if(APPLE)
     list(APPEND OMS_WALLET_SDK_SOURCES
@@ -74,10 +83,18 @@ target_compile_options(oms_wallet_c_sdk PUBLIC
 )
 
 target_link_libraries(oms_wallet_c_sdk PUBLIC
-        CURL::libcurl
         PkgConfig::CJSON
         ${SECP256K1_LIBRARIES}
 )
+
+if(OMS_WALLET_ENABLE_CURL_TRANSPORT)
+    target_link_libraries(oms_wallet_c_sdk PUBLIC CURL::libcurl)
+else()
+    target_compile_definitions(oms_wallet_c_sdk PUBLIC
+            OMS_WALLET_NO_CURL_TRANSPORT
+            WAAS_NO_CURL_TRANSPORT
+    )
+endif()
 
 # macOS frameworks
 if(APPLE)
@@ -91,7 +108,7 @@ endif()
 
 set(OMS_WALLET_RUNTIME_TARGETS "")
 
-if(OMS_WALLET_BUILD_DEMO)
+if(OMS_WALLET_BUILD_DEMO AND OMS_WALLET_ENABLE_CURL_TRANSPORT)
     add_executable(oms_wallet_demo demo.c)
     target_link_libraries(oms_wallet_demo PRIVATE oms_wallet_c_sdk)
     set_target_properties(oms_wallet_demo PROPERTIES OUTPUT_NAME "oms-wallet-demo")
@@ -100,7 +117,7 @@ endif()
 
 # ---- CLI ----
 
-if(OMS_WALLET_BUILD_CLI)
+if(OMS_WALLET_BUILD_CLI AND OMS_WALLET_ENABLE_CURL_TRANSPORT)
     add_executable(oms_wallet_cli cli.c)
     target_link_libraries(oms_wallet_cli PRIVATE oms_wallet_c_sdk)
     set_target_properties(oms_wallet_cli PROPERTIES OUTPUT_NAME "oms-wallet")
@@ -145,5 +162,17 @@ if(BUILD_TESTING)
                 tests/secure_storage_test.c)
         target_link_libraries(secure_storage_test PRIVATE oms_wallet_c_sdk)
         add_test(NAME secure_storage_test COMMAND secure_storage_test)
+    endif()
+
+    add_executable(auth_signer_provider_test
+            tests/auth_signer_provider_test.c)
+    target_link_libraries(auth_signer_provider_test PRIVATE oms_wallet_c_sdk)
+    add_test(NAME auth_signer_provider_test COMMAND auth_signer_provider_test)
+
+    if(UNIX)
+        add_executable(embedded_secure_auth_provider_test
+                tests/embedded_secure_auth_provider_test.c)
+        target_link_libraries(embedded_secure_auth_provider_test PRIVATE oms_wallet_c_sdk)
+        add_test(NAME embedded_secure_auth_provider_test COMMAND embedded_secure_auth_provider_test)
     endif()
 endif()

@@ -136,12 +136,12 @@ can compare payload and header generation byte-for-byte.
   - endpoint: `/SignMessage`
   - nonce: `1710000000`
   - walletId: `wallet-123`
-  - network: `amoy`
+  - network: `80002`
   - message: `hello`
 
 - Expected payload:
   ```json
-  {"network":"amoy","walletId":"wallet-123","message":"hello"}
+  {"network":"80002","walletId":"wallet-123","message":"hello"}
   ```
 
 - Expected preimage:
@@ -149,52 +149,52 @@ can compare payload and header generation byte-for-byte.
   POST /rpc/Wallet/SignMessage
   nonce: 1710000000
 
-  {"network":"amoy","walletId":"wallet-123","message":"hello"}
+  {"network":"80002","walletId":"wallet-123","message":"hello"}
   ```
 
 - Expected digest hex:
-  `0x2677991ae3d7458ca5a6332f9a97bd9be243c141588315249d2a3ee8ad63a5b5`
+  `0x29a8d52a8dfea23ba96f7125eb86249d117b80659b914531e7adbec23f0d7696`
 
 - Expected signature:
-  `0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b`
+  `0x049a8ee7e742acc50f9740d2cf1f81244550861ba23b1c8aefc7b5b4faacd58d30879065571f458015c09c6d028d770beeb1d9648bfa9d1a5aeeac02111294e91c`
 
 - Expected authorization header:
   ```text
-  Authorization: ethereum-secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000000,sig="0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b"
+  Authorization: ethereum-secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000000,sig="0x049a8ee7e742acc50f9740d2cf1f81244550861ba23b1c8aefc7b5b4faacd58d30879065571f458015c09c6d028d770beeb1d9648bfa9d1a5aeeac02111294e91c"
   ```
 
-## Vector: SendTransaction
+## Vector: PrepareEthereumTransaction
 
 - Inputs:
-  - endpoint: `/SendTransaction`
+  - endpoint: `/PrepareEthereumTransaction`
   - nonce: `1710000001`
   - walletId: `wallet-123`
-  - network: `amoy`
+  - network: `80002`
   - to: `0xE5E8B483FfC05967FcFed58cc98D053265af6D99`
   - value: `1000`
 
 - Expected payload:
   ```json
-  {"network":"amoy","walletId":"wallet-123","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"relayer"}
+  {"network":"80002","walletId":"wallet-123","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"relayer"}
   ```
 
 - Expected preimage:
   ```text
-  POST /rpc/Wallet/SendTransaction
+  POST /rpc/Wallet/PrepareEthereumTransaction
   nonce: 1710000001
 
-  {"network":"amoy","walletId":"wallet-123","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"relayer"}
+  {"network":"80002","walletId":"wallet-123","to":"0xE5E8B483FfC05967FcFed58cc98D053265af6D99","value":"1000","mode":"relayer"}
   ```
 
 - Expected digest hex:
-  `0x0e6f40130b1d5f1f569d41e529062b5fc077beadae4c5abfc06ae62e258d6009`
+  `0x59696d693931c348d8f1b508b21a5ec896bac14d4f485762dfa6c0cb093ec6c8`
 
 - Expected signature:
-  `0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c`
+  `0x2990168d92252af6bbdc92da23d07b07f54bdb86f0dee60591798d019f0edd535630b43581aa5959cd62c40f589e1c3e25fa1f5159130e76bf2437d8b9eacb4c1b`
 
 - Expected authorization header:
   ```text
-  Authorization: ethereum-secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000001,sig="0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c"
+  Authorization: ethereum-secp256k1 scope="@1:test",cred="0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",nonce=1710000001,sig="0x2990168d92252af6bbdc92da23d07b07f54bdb86f0dee60591798d019f0edd535630b43581aa5959cd62c40f589e1c3e25fa1f5159130e76bf2437d8b9eacb4c1b"
   ```
 
 ## Vector: CompleteAuth

@@ -3,6 +3,6 @@
 
 char *http_dup_cstr(const char *s);
 char *http_join_url(const char *base, const char *path);
-char *http_oms_wallet_access_key_header(void);
+char *http_oms_wallet_access_key_header(const char *access_key);
 
 #endif

@@ -11,8 +11,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "wallet/oms_wallet_config.h"
-
 #define OMS_WALLET_DEFAULT_STORAGE_DIR ".oms-wallet-c-sdk"
 #define OMS_WALLET_TMPFILE_MAX_ATTEMPTS 128
 
@@ -26,10 +24,10 @@ static char sanitize_key_char(char c)
     return '_';
 }
 
-static char *oms_wallet_storage_dir_dup(void)
+static char *oms_wallet_storage_dir_dup(const char *storage_dir)
 {
     const char *home;
-    const char *dir = oms_wallet_config.storage_dir;
+    const char *dir = storage_dir;
 
     if (dir && dir[0] != '\0')
     {
@@ -71,7 +69,7 @@ static char *oms_wallet_storage_dir_dup(void)
     }
 }
 
-static int open_storage_dir(int *out_fd)
+static int open_storage_dir(const char *storage_dir, int *out_fd)
 {
     char *dir = NULL;
     int dir_fd = -1;
@@ -84,7 +82,7 @@ static int open_storage_dir(int *out_fd)
     }
 
     *out_fd = -1;
-    dir = oms_wallet_storage_dir_dup();
+    dir = oms_wallet_storage_dir_dup(storage_dir);
     if (!dir)
     {
         return ENOMEM;
@@ -369,7 +367,7 @@ static int read_file_all(int dir_fd, const char *filename, uint8_t **out_data, s
     return 0;
 }
 
-static int secure_store_write_bytes(const char *key, const void *data, size_t len)
+static int secure_store_write_bytes_at(const char *storage_dir, const char *key, const void *data, size_t len)
 {
     char *filename = NULL;
     int dir_fd = -1;
@@ -386,7 +384,7 @@ static int secure_store_write_bytes(const char *key, const void *data, size_t le
         return ENOMEM;
     }
 
-    status = open_storage_dir(&dir_fd);
+    status = open_storage_dir(storage_dir, &dir_fd);
     if (status != 0)
     {
         free(filename);
@@ -399,7 +397,7 @@ static int secure_store_write_bytes(const char *key, const void *data, size_t le
     return status;
 }
 
-static int secure_store_read_bytes(const char *key, uint8_t **out_data, size_t *out_len)
+static int secure_store_read_bytes_at(const char *storage_dir, const char *key, uint8_t **out_data, size_t *out_len)
 {
     char *filename = NULL;
     int dir_fd = -1;
@@ -416,7 +414,7 @@ static int secure_store_read_bytes(const char *key, uint8_t **out_data, size_t *
         return ENOMEM;
     }
 
-    status = open_storage_dir(&dir_fd);
+    status = open_storage_dir(storage_dir, &dir_fd);
     if (status != 0)
     {
         free(filename);
@@ -429,17 +427,17 @@ static int secure_store_read_bytes(const char *key, uint8_t **out_data, size_t *
     return status;
 }
 
-int secure_store_write_string(const char *key, const char *value)
+int secure_store_write_string_at(const char *storage_dir, const char *key, const char *value)
 {
     if (!key || !value)
     {
         return EINVAL;
     }
 
-    return secure_store_write_bytes(key, value, strlen(value));
+    return secure_store_write_bytes_at(storage_dir, key, value, strlen(value));
 }
 
-int secure_store_read_string(const char *key, char **value)
+int secure_store_read_string_at(const char *storage_dir, const char *key, char **value)
 {
     uint8_t *data = NULL;
     size_t len = 0;
@@ -450,7 +448,7 @@ int secure_store_read_string(const char *key, char **value)
         return EINVAL;
     }
 
-    status = secure_store_read_bytes(key, &data, &len);
+    status = secure_store_read_bytes_at(storage_dir, key, &data, &len);
     if (status != 0)
     {
         return status;
@@ -472,7 +470,7 @@ int secure_store_read_string(const char *key, char **value)
     return 0;
 }
 
-int secure_store_delete(const char *key)
+int secure_store_delete_at(const char *storage_dir, const char *key)
 {
     char *filename = NULL;
     int dir_fd = -1;
@@ -489,7 +487,7 @@ int secure_store_delete(const char *key)
         return ENOMEM;
     }
 
-    status = open_storage_dir(&dir_fd);
+    status = open_storage_dir(storage_dir, &dir_fd);
     if (status != 0)
     {
         free(filename);
@@ -510,17 +508,32 @@ int secure_store_delete(const char *key)
     return status;
 }
 
-int secure_store_write_seckey(const uint8_t seckey[32])
+int secure_store_write_string(const char *key, const char *value)
+{
+    return secure_store_write_string_at(NULL, key, value);
+}
+
+int secure_store_read_string(const char *key, char **value)
+{
+    return secure_store_read_string_at(NULL, key, value);
+}
+
+int secure_store_delete(const char *key)
+{
+    return secure_store_delete_at(NULL, key);
+}
+
+int secure_store_write_seckey_at(const char *storage_dir, const uint8_t seckey[32])
 {
     if (!seckey)
     {
         return EINVAL;
     }
 
-    return secure_store_write_bytes("seckey", seckey, 32);
+    return secure_store_write_bytes_at(storage_dir, "seckey", seckey, 32);
 }
 
-int secure_store_read_seckey(uint8_t seckey[32])
+int secure_store_read_seckey_at(const char *storage_dir, uint8_t seckey[32])
 {
     uint8_t *data = NULL;
     size_t len = 0;
@@ -531,7 +544,7 @@ int secure_store_read_seckey(uint8_t seckey[32])
         return EINVAL;
     }
 
-    status = secure_store_read_bytes("seckey", &data, &len);
+    status = secure_store_read_bytes_at(storage_dir, "seckey", &data, &len);
     if (status != 0)
     {
         return status;
@@ -548,9 +561,24 @@ int secure_store_read_seckey(uint8_t seckey[32])
     return 0;
 }
 
+int secure_store_delete_seckey_at(const char *storage_dir)
+{
+    return secure_store_delete_at(storage_dir, "seckey");
+}
+
+int secure_store_write_seckey(const uint8_t seckey[32])
+{
+    return secure_store_write_seckey_at(NULL, seckey);
+}
+
+int secure_store_read_seckey(uint8_t seckey[32])
+{
+    return secure_store_read_seckey_at(NULL, seckey);
+}
+
 int secure_store_delete_seckey(void)
 {
-    return secure_store_delete("seckey");
+    return secure_store_delete_seckey_at(NULL);
 }
 
 int secure_store_status_is_not_found(int status)

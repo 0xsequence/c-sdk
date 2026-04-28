@@ -5,9 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <curl/curl.h>
-
-#include "../wallet/oms_wallet_config.h"
 
 struct HttpClient {
     char *base_url;
@@ -19,12 +18,23 @@ typedef struct {
     char *data;
     size_t len;
     size_t cap;
+    size_t max_response_bytes;
 } Buf;
 
 static int buf_grow(Buf *b, size_t need) {
     if (b->cap >= need) return 1;
+    if (b->max_response_bytes > 0 && need > b->max_response_bytes + 1) return 0;
     size_t newcap = b->cap ? b->cap : 1024;
-    while (newcap < need) newcap *= 2;
+    while (newcap < need) {
+        if (newcap > SIZE_MAX / 2) {
+            newcap = need;
+            break;
+        }
+        newcap *= 2;
+    }
+    if (b->max_response_bytes > 0 && newcap > b->max_response_bytes + 1) {
+        newcap = b->max_response_bytes + 1;
+    }
     char *p = (char*)realloc(b->data, newcap);
     if (!p) return 0;
     b->data = p;
@@ -33,9 +43,12 @@ static int buf_grow(Buf *b, size_t need) {
 }
 
 static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
-    size_t n = size * nmemb;
+    size_t n;
     Buf *b = (Buf*)userdata;
 
+    if (size != 0 && nmemb > SIZE_MAX / size) return 0;
+    n = size * nmemb;
+    if (b->len > SIZE_MAX - n - 1) return 0;
     if (!buf_grow(b, b->len + n + 1)) return 0; /* abort */
     memcpy(b->data + b->len, ptr, n);
     b->len += n;
@@ -95,14 +108,14 @@ int http_client_add_header(HttpClient *c, const char *header_line) {
     return 1;
 }
 
-int http_add_oms_wallet_access_key(HttpClient *c) {
+int http_add_oms_wallet_access_key(HttpClient *c, const char *access_key) {
     char *header;
 
-    if (!c || !oms_wallet_config.access_key || !oms_wallet_config.access_key[0]) {
+    if (!c || !access_key || !access_key[0]) {
         return 0; /* no key configured */
     }
 
-    header = http_oms_wallet_access_key_header();
+    header = http_oms_wallet_access_key_header(access_key);
     if (!header) return -1;
 
     if (!http_client_add_header(c, header)) {
@@ -118,7 +131,8 @@ int http_add_oms_wallet_access_key(HttpClient *c) {
 HttpResponse http_client_post_json(HttpClient *c,
                                   const char *path,
                                   const char *json_body,
-                                  long timeout_ms)
+                                  long timeout_ms,
+                                  size_t max_response_bytes)
 {
     if (!c) return make_error("HttpClient is NULL");
 
@@ -132,6 +146,7 @@ HttpResponse http_client_post_json(HttpClient *c,
     }
 
     Buf buf = {0};
+    buf.max_response_bytes = max_response_bytes;
 
     /* Build headers: default headers + content-type + optional auth */
     struct curl_slist *headers = NULL;
