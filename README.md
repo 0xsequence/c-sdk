@@ -3,9 +3,9 @@
 ## Support Matrix
 
 - macOS: supported for development and local testing, uses Keychain-backed secure storage
-- Linux: supported runtime target for normal POSIX + `libcurl` environments, uses POSIX file-backed secure storage
-- HTTP transport: `libcurl` only
-- Session model: single-session and not thread-safe
+- Linux: supported runtime target for POSIX + `libcurl` environments and for embedded integrations that provide their own transport/session/signer providers
+- HTTP transport: built-in `libcurl` transport is optional; applications can provide an SDK-wide transport callback
+- Session model: caller-owned `oms_wallet_sdk_t` context; each context owns config, session handles, transport, signer, and response limits
 
 ## Setup
 
@@ -37,6 +37,7 @@ Optional targets:
 
 ```shell
 cmake -S . -B build -DOMS_WALLET_BUILD_DEMO=OFF -DOMS_WALLET_BUILD_CLI=OFF
+cmake -S . -B build-no-curl -DOMS_WALLET_ENABLE_CURL_TRANSPORT=OFF -DOMS_WALLET_BUILD_DEMO=OFF -DOMS_WALLET_BUILD_CLI=OFF
 ```
 
 `OMS_WALLET_BUILD_DEMO` and `OMS_WALLET_BUILD_CLI` only control those runtime
@@ -44,15 +45,16 @@ binaries. They do not disable the library or the test targets.
 
 ## Initialization
 
-Call `oms_wallet_config_init(...)` before using wallet, indexer, or API helpers.
-The SDK no longer falls back to built-in runtime URLs when config is unset.
+Allocate and initialize an `oms_wallet_sdk_t` before using wallet, indexer, or
+API helpers. The SDK no longer uses process-global mutable config.
 
 Minimal setup:
 
 ```c
 #include <wallet/oms_wallet_config.h>
 
-if (oms_wallet_config_init("YOUR_ACCESS_KEY") != 0) {
+oms_wallet_sdk_t sdk;
+if (oms_wallet_sdk_init(&sdk, "YOUR_ACCESS_KEY") != 0) {
     /* handle config initialization failure */
 }
 ```
@@ -60,19 +62,20 @@ if (oms_wallet_config_init("YOUR_ACCESS_KEY") != 0) {
 Common overrides:
 
 ```c
-oms_wallet_config_set_indexer_url_template("https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
-oms_wallet_config_set_api_rpc_url("https://dev-api.sequence.app/rpc/API");
-oms_wallet_config_set_wallet_rpc_url("https://your-wallet-host/rpc/Wallet");
-oms_wallet_config_set_origin_header("Origin: http://localhost:3000");
-oms_wallet_config_set_storage_dir("/var/lib/oms-wallet-c-sdk");
+oms_wallet_config_set_indexer_url_template(&sdk, "https://dev-{value}-indexer.sequence.app/rpc/Indexer/");
+oms_wallet_config_set_api_rpc_url(&sdk, "https://dev-api.sequence.app/rpc/API");
+oms_wallet_config_set_wallet_rpc_url(&sdk, "https://your-wallet-host/rpc/Wallet");
+oms_wallet_config_set_origin_header(&sdk, "Origin: http://localhost:3000");
+oms_wallet_config_set_storage_dir(&sdk, "/var/lib/oms-wallet-c-sdk");
+oms_wallet_config_set_max_response_bytes(&sdk, 64 * 1024);
 ```
 
 The default wallet auth scope is `proj_1`. Only override it if your environment
 requires a different scope.
 
-Call `oms_wallet_config_cleanup()` when you are done with SDK-owned config state.
+Call `oms_wallet_sdk_cleanup(&sdk)` when you are done with SDK-owned state.
 
-`oms_wallet_restore_session()` returns:
+`oms_wallet_restore_session(&sdk)` returns:
 
 - `1` when a usable saved session was restored
 - `0` when no usable saved session exists yet
@@ -80,7 +83,27 @@ Call `oms_wallet_config_cleanup()` when you are done with SDK-owned config state
 
 ## Linux Secure Storage
 
-On Linux, secure storage uses a file-per-key backend with:
+By default, the SDK creates a local `ethereum-secp256k1` auth credential used
+to sign WaaS RPC requests. Applications that need hardware-backed credentials
+can replace this with `oms_wallet_config_set_auth_signer_provider(&sdk, ...)`. Custom
+providers own credential creation, credential identity, and request signing; the
+SDK does not require providers to export private key bytes.
+
+The SDK owns WaaS authorization canonicalization and passes canonical message
+bytes to the provider. Providers should sign those bytes as-is and return the
+signature hex string; they should not rebuild the HTTP request preimage
+independently. Tests and embedded integrations can also replace all SDK
+networking with `oms_wallet_config_set_transport(&sdk, ...)`. Wallet RPC
+requests are delivered to that transport after the SDK appends Authorization.
+Indexer and API helper requests use the same transport boundary.
+
+Session persistence can be platform-owned too:
+`oms_wallet_config_set_session_store_provider(&sdk, ...)` lets applications
+store challenge/verifier/signer-id/wallet-id state in NVRAM, TPM-sealed blobs,
+an encrypted database, or product-specific storage.
+
+On Linux, the default software provider stores its auth credential with a
+file-per-key backend using:
 
 - directory permissions: `0700`
 - file permissions: `0600`
@@ -97,13 +120,14 @@ Default storage path:
 Override the storage location with:
 
 ```c
-oms_wallet_config_set_storage_dir("/path/to/app-state");
+oms_wallet_config_set_storage_dir(&sdk, "/path/to/app-state");
 ```
 
-Persisted keys used by the SDK:
+Persisted session keys used by the SDK:
 
 - `access-key`: CLI-stored access key used to initialize SDK config
-- `seckey`: signer private key for the current session
+- `oms_auth_signer_id`: opaque auth credential signer handle
+- `seckey`: internal raw auth credential used only by the default software signer
 - `challenge`: pending email sign-in challenge
 - `verifier`: pending email sign-in verifier
 - `oms_wallet_id`: selected wallet id for follow-up wallet operations
@@ -123,6 +147,8 @@ Current test coverage:
 - `oms_wallet_request_signing_test`: validates canonical request payloads, preimages, digests, signatures, and authorization headers against checked-in vectors
 - `timestamps_test`: validates nonce monotonicity from `timestamp_next_nonce()`
 - `secure_storage_test`: Linux-only regression test for the POSIX secure-storage backend
+- `auth_signer_provider_test`: validates custom signer provider ownership and restore flow
+- `embedded_secure_auth_provider_test`: simulates an embedded secure-element signer plus SDK-owned request canonicalization over a custom transport
 
 #### Run the demo or cli
 

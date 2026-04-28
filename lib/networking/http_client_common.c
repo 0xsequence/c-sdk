@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../wallet/oms_wallet_config.h"
-
 char *http_dup_cstr(const char *s)
 {
     size_t n;
@@ -56,19 +54,19 @@ char *http_join_url(const char *base, const char *path)
     return out;
 }
 
-char *http_oms_wallet_access_key_header(void)
+char *http_oms_wallet_access_key_header(const char *access_key)
 {
     size_t len;
     char *header;
 
-    if (!oms_wallet_config.access_key || !oms_wallet_config.access_key[0]) {
+    if (!access_key || !access_key[0]) {
         return NULL;
     }
 
-    len = strlen("X-Access-Key: ") + strlen(oms_wallet_config.access_key) + 1;
+    len = strlen("X-Access-Key: ") + strlen(access_key) + 1;
     header = (char *)malloc(len);
     if (!header) return NULL;
 
-    snprintf(header, len, "X-Access-Key: %s", oms_wallet_config.access_key);
+    snprintf(header, len, "X-Access-Key: %s", access_key);
     return header;
 }

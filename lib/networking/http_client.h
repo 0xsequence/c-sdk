@@ -27,7 +27,7 @@ extern "C" {
     /* Optional: set a default header (e.g. "X-API-Key: ..."). Can be called multiple times. */
     int http_client_add_header(HttpClient *c, const char *header_line);
 
-	int http_add_oms_wallet_access_key(HttpClient *c);
+	int http_add_oms_wallet_access_key(HttpClient *c, const char *access_key);
 
     /*
      * POST JSON to path (appended to base_url). Example: path="/v1/items"
@@ -37,7 +37,8 @@ extern "C" {
     HttpResponse http_client_post_json(HttpClient *c,
                                       const char *path,
                                       const char *json_body,
-                                      long timeout_ms);
+                                      long timeout_ms,
+                                      size_t max_response_bytes);
 
     /* Free all heap memory inside HttpResponse (body/error) */
     void http_response_free(HttpResponse *r);

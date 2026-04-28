@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "wallet/oms_wallet_config.h"
 #include "indexer/get_token_balances.h"
@@ -40,12 +41,12 @@ static bool has_arg(int argc, char **argv, const char *name)
     return false;
 }
 
-static void init_oms_wallet_config_from_storage(void)
+static void init_oms_wallet_config_from_storage(oms_wallet_sdk_t *sdk)
 {
     char *access_key = NULL;
 
     secure_store_read_string("access-key", &access_key);
-    if (oms_wallet_config_init(access_key) != 0) {
+    if (oms_wallet_sdk_init(sdk, access_key) != 0) {
         fprintf(stderr, "Failed to initialize OMS Wallet config\n");
     }
     free(access_key);
@@ -66,9 +67,61 @@ static void free_sign_message_response(oms_wallet_sign_message_response_t *respo
     oms_wallet_free_sign_message(response);
 }
 
-static void free_send_transaction_response(oms_wallet_send_transaction_response_t *response)
+static void free_prepare_transaction_response(oms_wallet_prepare_ethereum_transaction_response_t *response)
 {
-    oms_wallet_free_send_transaction(response);
+    oms_wallet_free_prepare_ethereum_transaction(response);
+}
+
+static void free_execute_response(oms_wallet_execute_response_t *response)
+{
+    oms_wallet_free_execute(response);
+}
+
+static void free_get_transaction_status_response(oms_wallet_get_transaction_status_response_t *response)
+{
+    oms_wallet_free_get_transaction_status(response);
+}
+
+static int wait_for_transaction_executed(
+    oms_wallet_sdk_t *sdk,
+    const char *txn_id,
+    int max_attempts,
+    unsigned int sleep_seconds)
+{
+    for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        oms_wallet_get_transaction_status_response_t *status_response =
+            oms_wallet_get_transaction_status(sdk, txn_id);
+        waas_transaction_status_response *status_payload =
+            status_response ? status_response->transaction_status_response : NULL;
+
+        if (!status_payload) {
+            free_get_transaction_status_response(status_response);
+            fprintf(stderr, "get-transaction-status failed\n");
+            return -1;
+        }
+
+        printf(
+            "Transaction Status [%d/%d]: %s",
+            attempt,
+            max_attempts,
+            waas_transaction_status_to_string(status_payload->status));
+        if (status_payload->has_txn_hash && status_payload->txn_hash) {
+            printf(" (hash=%s)", status_payload->txn_hash);
+        }
+        printf("\n");
+
+        if (status_payload->status == WAAS_TRANSACTION_STATUS_EXECUTED) {
+            free_get_transaction_status_response(status_response);
+            return 0;
+        }
+
+        free_get_transaction_status_response(status_response);
+        if (attempt < max_attempts) {
+            sleep(sleep_seconds);
+        }
+    }
+
+    return 1;
 }
 
 static void print_header(const char *title) {
@@ -81,9 +134,9 @@ static void print_use_case(const char *title, const char *command) {
     printf(">> %s\n", command);
 }
 
-static int require_restored_session(const char *operation, const char *missing_message)
+static int require_restored_session(oms_wallet_sdk_t *sdk, const char *operation, const char *missing_message)
 {
-    int restore_status = oms_wallet_restore_session();
+    int restore_status = oms_wallet_restore_session(sdk);
 
     if (restore_status > 0) {
         return 1;
@@ -120,6 +173,7 @@ static void print_wallet_and_use_cases(const oms_wallet_t *wallet)
 }
 
 static oms_wallet_t *select_wallet_from_auth(
+    oms_wallet_sdk_t *sdk,
     const oms_wallet_complete_auth_response_t *response,
     const char *wallet_type
 )
@@ -131,7 +185,7 @@ static oms_wallet_t *select_wallet_from_auth(
     }
 
     if (!response->complete_auth_response || response->complete_auth_response->wallets.count == 0) {
-        return oms_wallet_create_wallet_of_type(wallet_type);
+        return oms_wallet_create_wallet_of_type(sdk, wallet_type);
     }
 
     if (response->complete_auth_response->wallets.items) {
@@ -140,13 +194,13 @@ static oms_wallet_t *select_wallet_from_auth(
                 strcmp(
                     waas_wallet_type_to_string(response->complete_auth_response->wallets.items[i]->type),
                     wallet_type) == 0) {
-                wallet = oms_wallet_use_wallet(response->complete_auth_response->wallets.items[i]->id);
+                wallet = oms_wallet_use_wallet(sdk, response->complete_auth_response->wallets.items[i]->id);
                 break;
             }
         }
     }
 
-    return wallet ? wallet : oms_wallet_create_wallet_of_type(wallet_type);
+    return wallet ? wallet : oms_wallet_create_wallet_of_type(sdk, wallet_type);
 }
 
 static void print_help(const char *prog) {
@@ -211,6 +265,8 @@ static void print_help(const char *prog) {
 
 int main(int argc, char **argv) {
     const char *cmd = NULL;
+    oms_wallet_sdk_t sdk;
+    memset(&sdk, 0, sizeof(sdk));
 
     if (argc < 2) {
         printf("Usage: oms-wallet <command> [options]\n");
@@ -220,7 +276,7 @@ int main(int argc, char **argv) {
     cmd = argv[1];
 
     if (strcmp(cmd, "init") != 0 && strcmp(argv[1], "--help") != 0 && strcmp(argv[1], "-h") != 0) {
-        init_oms_wallet_config_from_storage();
+        init_oms_wallet_config_from_storage(&sdk);
     }
 
     if (strcmp(argv[1], "--help") == 0 ||
@@ -264,7 +320,7 @@ int main(int argc, char **argv) {
         }
 
         OmsWalletGetTokenBalancesReturn *res =
-            oms_wallet_get_token_balances(chain_id, contract_address, wallet_address, include_metadata);
+            oms_wallet_get_token_balances(&sdk, chain_id, contract_address, wallet_address, include_metadata);
 
         if (!res) {
             fprintf(stderr, "oms_wallet_get_token_balances failed\n");
@@ -283,7 +339,7 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        if (oms_wallet_start_email_sign_in(email)) {
+        if (oms_wallet_start_email_sign_in(&sdk, email)) {
             printf("Email sign-in has been successfully initialized. Please use the code sent to your email with the following command:\n");
             print_use_case("Confirm Email Sign In", "oms-wallet confirm-email-sign-in --code <code>");
         }
@@ -298,11 +354,12 @@ int main(int argc, char **argv) {
         }
 
         if (!require_restored_session(
+                &sdk,
                 "confirm-email-sign-in",
                 "No pending sign-in session found. Start with 'oms-wallet sign-in-with-email --email <email>'.")) {
             return 1;
         }
-        oms_wallet_complete_auth_response_t *res = oms_wallet_complete_email_sign_in(code);
+        oms_wallet_complete_auth_response_t *res = oms_wallet_complete_email_sign_in(&sdk, code);
 
         if (!res) {
             fprintf(stderr, "oms_wallet_complete_email_sign_in failed\n");
@@ -310,7 +367,7 @@ int main(int argc, char **argv) {
         }
 
         if (wallet_type) {
-            oms_wallet_t *wallet = select_wallet_from_auth(res, wallet_type);
+            oms_wallet_t *wallet = select_wallet_from_auth(&sdk, res, wallet_type);
 
             if (wallet) {
                 print_wallet_and_use_cases(wallet);
@@ -357,6 +414,7 @@ int main(int argc, char **argv) {
         print_header("Create Wallet");
 
         if (!require_restored_session(
+                &sdk,
                 "create-wallet",
                 "No saved session found. Complete sign-in first.")) {
             return 1;
@@ -369,8 +427,8 @@ int main(int argc, char **argv) {
         }
 
         oms_wallet_t *wallet = wallet_type
-            ? oms_wallet_create_wallet_of_type(wallet_type)
-            : oms_wallet_create_wallet();
+            ? oms_wallet_create_wallet_of_type(&sdk, wallet_type)
+            : oms_wallet_create_wallet(&sdk);
 
         if (!wallet) {
             fprintf(stderr, "Failed to create wallet of type '%s'\n", wallet_type);
@@ -387,11 +445,12 @@ int main(int argc, char **argv) {
         if (!wallet_id) { fprintf(stderr, "Missing --wallet-id\n"); return 1; }
 
         if (!require_restored_session(
+                &sdk,
                 "use-wallet",
                 "No saved session found. Complete sign-in first.")) {
             return 1;
         }
-        oms_wallet_t *wallet = oms_wallet_use_wallet(wallet_id);
+        oms_wallet_t *wallet = oms_wallet_use_wallet(&sdk, wallet_id);
 
         if (!wallet) {
             fprintf(stderr, "Failed to use wallet '%s'\n", wallet_id);
@@ -418,7 +477,7 @@ int main(int argc, char **argv) {
         }
 
         OmsWalletIsValidMessageSignatureReturn *res =
-            oms_wallet_is_valid_message_signature(chain_id, wallet_address, message, signature);
+            oms_wallet_is_valid_message_signature(&sdk, chain_id, wallet_address, message, signature);
 
         printf("Status: %d\n", res ? res->status : -1);
         printf("isValid: %s\n", (res && res->is_valid) ? "true" : "false");
@@ -438,11 +497,12 @@ int main(int argc, char **argv) {
         }
 
         if (!require_restored_session(
+                &sdk,
                 "sign-message",
                 "No saved session found. Select or create a wallet first.")) {
             return 1;
         }
-        oms_wallet_sign_message_response_t *signature = oms_wallet_sign_message(chain_id, message);
+        oms_wallet_sign_message_response_t *signature = oms_wallet_sign_message(&sdk, chain_id, message);
         printf(
             "Signature: %s\n",
             (signature && signature->sign_message_response) ? signature->sign_message_response->signature : "(null)");
@@ -463,15 +523,34 @@ int main(int argc, char **argv) {
         }
 
         if (!require_restored_session(
+                &sdk,
                 "send-transaction",
                 "No saved session found. Select or create a wallet first.")) {
             return 1;
         }
-        oms_wallet_send_transaction_response_t *tx = oms_wallet_send_transaction(chain_id, to, value);
+        oms_wallet_prepare_ethereum_transaction_response_t *prepared =
+            oms_wallet_prepare_ethereum_transaction(&sdk, chain_id, to, value);
+        const char *txn_id =
+            (prepared && prepared->prepare_response) ? prepared->prepare_response->txn_id : NULL;
+        oms_wallet_execute_response_t *executed = txn_id ? oms_wallet_execute(&sdk, txn_id) : NULL;
+        int wait_result = -1;
         printf(
-            "Transaction Hash: %s\n",
-            (tx && tx->send_transaction_response) ? tx->send_transaction_response->tx_hash : "(null)");
-        free_send_transaction_response(tx);
+            "Transaction ID: %s\n",
+            txn_id ? txn_id : "(null)");
+        printf(
+            "Transaction Status: %s\n",
+            (executed && executed->execute_response)
+                ? waas_transaction_status_to_string(executed->execute_response->status)
+                : "(null)");
+        if (txn_id && executed && executed->execute_response) {
+            wait_result = wait_for_transaction_executed(&sdk, txn_id, 60, 2);
+        }
+        free_execute_response(executed);
+        free_prepare_transaction_response(prepared);
+        if (wait_result != 0) {
+            fprintf(stderr, "transaction did not reach executed status before timeout\n");
+            return 1;
+        }
 
     } else {
         fprintf(stderr, "Unknown command: %s\n", cmd);

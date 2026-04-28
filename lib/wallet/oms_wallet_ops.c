@@ -55,7 +55,7 @@ static void *oms_wallet_finish_rpc_response(
     return response;
 }
 
-oms_wallet_t *oms_wallet_use_wallet(const char *wallet_id)
+oms_wallet_t *oms_wallet_use_wallet(oms_wallet_sdk_t *sdk, const char *wallet_id)
 {
     waas_use_wallet_request params;
     waas_wallet_use_wallet_request request;
@@ -63,7 +63,7 @@ oms_wallet_t *oms_wallet_use_wallet(const char *wallet_id)
     oms_wallet_rpc_context rpc;
     waas_wallet *wallet = NULL;
 
-    if (!oms_wallet_require_signer_initialized())
+    if (!oms_wallet_require_signer_initialized(sdk))
     {
         return NULL;
     }
@@ -71,7 +71,7 @@ oms_wallet_t *oms_wallet_use_wallet(const char *wallet_id)
     waas_use_wallet_request_init(&params);
     waas_wallet_use_wallet_request_init(&request);
     waas_wallet_use_wallet_response_init(&response);
-    oms_wallet_rpc_context_init(&rpc);
+    oms_wallet_rpc_context_init(&rpc, sdk);
 
     if (!wallet_id || wallet_id[0] == '\0')
     {
@@ -126,12 +126,12 @@ cleanup:
     return wallet;
 }
 
-oms_wallet_t *oms_wallet_create_wallet()
+oms_wallet_t *oms_wallet_create_wallet(oms_wallet_sdk_t *sdk)
 {
-    return oms_wallet_create_wallet_of_type(oms_wallet_default_wallet_type());
+    return oms_wallet_create_wallet_of_type(sdk, oms_wallet_default_wallet_type());
 }
 
-oms_wallet_t *oms_wallet_create_wallet_of_type(const char *wallet_type)
+oms_wallet_t *oms_wallet_create_wallet_of_type(oms_wallet_sdk_t *sdk, const char *wallet_type)
 {
     waas_create_wallet_request params;
     waas_wallet_create_wallet_request request;
@@ -144,7 +144,7 @@ oms_wallet_t *oms_wallet_create_wallet_of_type(const char *wallet_type)
         wallet_type = oms_wallet_default_wallet_type();
     }
 
-    if (!oms_wallet_require_signer_initialized())
+    if (!oms_wallet_require_signer_initialized(sdk))
     {
         return NULL;
     }
@@ -152,7 +152,7 @@ oms_wallet_t *oms_wallet_create_wallet_of_type(const char *wallet_type)
     waas_create_wallet_request_init(&params);
     waas_wallet_create_wallet_request_init(&request);
     waas_wallet_create_wallet_response_init(&response);
-    oms_wallet_rpc_context_init(&rpc);
+    oms_wallet_rpc_context_init(&rpc, sdk);
 
     if (oms_wallet_parse_wallet_type(wallet_type, &params.type, &rpc.error) != 0)
     {
@@ -192,6 +192,7 @@ cleanup:
 }
 
 oms_wallet_sign_message_response_t *oms_wallet_sign_message(
+    oms_wallet_sdk_t *sdk,
     const char *chain_id,
     const char *message)
 {
@@ -199,17 +200,15 @@ oms_wallet_sign_message_response_t *oms_wallet_sign_message(
     waas_wallet_sign_message_request request;
     waas_wallet_sign_message_response *response = NULL;
     oms_wallet_rpc_context rpc;
-    char *address = NULL;
-    const char *network = NULL;
 
-    if (!oms_wallet_require_signer_initialized())
+    if (!oms_wallet_require_signer_initialized(sdk))
     {
         return NULL;
     }
 
     waas_sign_message_request_init(&params);
     waas_wallet_sign_message_request_init(&request);
-    oms_wallet_rpc_context_init(&rpc);
+    oms_wallet_rpc_context_init(&rpc, sdk);
 
     response = oms_wallet_alloc_rpc_response(
         sizeof(*response),
@@ -222,6 +221,7 @@ oms_wallet_sign_message_response_t *oms_wallet_sign_message(
     }
 
     if (oms_wallet_prepare_wallet_target_params(
+            sdk,
             chain_id,
             &params.network,
             &params.wallet_id,
@@ -263,41 +263,43 @@ cleanup:
     return response;
 }
 
-oms_wallet_send_transaction_response_t *oms_wallet_send_transaction(
+oms_wallet_prepare_ethereum_transaction_response_t *oms_wallet_prepare_ethereum_transaction(
+    oms_wallet_sdk_t *sdk,
     const char *chain_id,
     const char *to,
     const char *value)
 {
-    waas_send_transaction_request params;
-    waas_wallet_send_transaction_request request;
-    waas_wallet_send_transaction_response *response = NULL;
+    waas_prepare_ethereum_transaction_request params;
+    waas_wallet_prepare_ethereum_transaction_request request;
+    waas_wallet_prepare_ethereum_transaction_response *response = NULL;
     oms_wallet_rpc_context rpc;
 
-    if (!oms_wallet_require_signer_initialized())
+    if (!oms_wallet_require_signer_initialized(sdk))
     {
         return NULL;
     }
 
-    waas_send_transaction_request_init(&params);
-    waas_wallet_send_transaction_request_init(&request);
-    oms_wallet_rpc_context_init(&rpc);
+    waas_prepare_ethereum_transaction_request_init(&params);
+    waas_wallet_prepare_ethereum_transaction_request_init(&request);
+    oms_wallet_rpc_context_init(&rpc, sdk);
 
     response = oms_wallet_alloc_rpc_response(
         sizeof(*response),
-        (void (*)(void *))waas_wallet_send_transaction_response_init,
+        (void (*)(void *))waas_wallet_prepare_ethereum_transaction_response_init,
         &rpc,
-        "failed to allocate SendTransaction response");
+        "failed to allocate PrepareEthereumTransaction response");
     if (!response)
     {
         goto cleanup;
     }
 
     if (oms_wallet_prepare_wallet_target_params(
+            sdk,
             chain_id,
             &params.network,
             &params.wallet_id,
             &rpc.error,
-            "failed to prepare SendTransaction request target") != 0)
+            "failed to prepare PrepareEthereumTransaction request target") != 0)
     {
         goto cleanup;
     }
@@ -310,39 +312,181 @@ oms_wallet_send_transaction_response_t *oms_wallet_send_transaction(
         oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
-            "failed to prepare SendTransaction request",
+            "failed to prepare PrepareEthereumTransaction request",
             NULL);
         goto cleanup;
     }
-    request.send_transaction_request = &params;
+    request.prepare_ethereum_transaction_request = &params;
 
     if (oms_wallet_rpc_execute(
             &rpc,
             &request,
             response,
-            oms_wallet_send_transaction_prepare_request,
-            oms_wallet_send_transaction_parse_response) != 0)
+            oms_wallet_prepare_ethereum_transaction_prepare_request,
+            oms_wallet_prepare_ethereum_transaction_parse_response) != 0)
     {
         goto cleanup;
     }
 
-    if (!response->send_transaction_response || !response->send_transaction_response->tx_hash)
+    if (!response->prepare_response || !response->prepare_response->txn_id)
     {
         oms_wallet_set_waas_error(
             &rpc.error,
             "ClientError",
-            "missing SendTransaction response payload",
+            "missing PrepareEthereumTransaction response payload",
             NULL);
         goto cleanup;
     }
 
 cleanup:
-    waas_send_transaction_request_free(&params);
+    waas_prepare_ethereum_transaction_request_free(&params);
     response = oms_wallet_finish_rpc_response(
         response,
-        (void (*)(void *))waas_wallet_send_transaction_response_free,
+        (void (*)(void *))waas_wallet_prepare_ethereum_transaction_response_free,
         &rpc,
-        "SendTransaction");
+        "PrepareEthereumTransaction");
+    oms_wallet_rpc_context_free(&rpc);
+    return response;
+}
+
+oms_wallet_execute_response_t *oms_wallet_execute(
+    oms_wallet_sdk_t *sdk,
+    const char *txn_id)
+{
+    waas_execute_request params;
+    waas_wallet_execute_request request;
+    waas_wallet_execute_response *response = NULL;
+    oms_wallet_rpc_context rpc;
+
+    if (!oms_wallet_require_signer_initialized(sdk))
+    {
+        return NULL;
+    }
+
+    waas_execute_request_init(&params);
+    waas_wallet_execute_request_init(&request);
+    oms_wallet_rpc_context_init(&rpc, sdk);
+
+    response = oms_wallet_alloc_rpc_response(
+        sizeof(*response),
+        (void (*)(void *))waas_wallet_execute_response_init,
+        &rpc,
+        "failed to allocate Execute response");
+    if (!response)
+    {
+        goto cleanup;
+    }
+
+    params.txn_id = waas_strdup(txn_id);
+    if (txn_id && !params.txn_id)
+    {
+        oms_wallet_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "failed to prepare Execute request",
+            NULL);
+        goto cleanup;
+    }
+    request.execute_request = &params;
+
+    if (oms_wallet_rpc_execute(
+            &rpc,
+            &request,
+            response,
+            oms_wallet_execute_prepare_request,
+            oms_wallet_execute_parse_response) != 0)
+    {
+        goto cleanup;
+    }
+
+    if (!response->execute_response)
+    {
+        oms_wallet_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "missing Execute response payload",
+            NULL);
+        goto cleanup;
+    }
+
+cleanup:
+    waas_execute_request_free(&params);
+    response = oms_wallet_finish_rpc_response(
+        response,
+        (void (*)(void *))waas_wallet_execute_response_free,
+        &rpc,
+        "Execute");
+    oms_wallet_rpc_context_free(&rpc);
+    return response;
+}
+
+oms_wallet_get_transaction_status_response_t *oms_wallet_get_transaction_status(
+    oms_wallet_sdk_t *sdk,
+    const char *txn_id)
+{
+    waas_get_transaction_status_request params;
+    waas_wallet_get_transaction_status_request request;
+    waas_wallet_get_transaction_status_response *response = NULL;
+    oms_wallet_rpc_context rpc;
+
+    if (!oms_wallet_require_signer_initialized(sdk))
+    {
+        return NULL;
+    }
+
+    waas_get_transaction_status_request_init(&params);
+    waas_wallet_get_transaction_status_request_init(&request);
+    oms_wallet_rpc_context_init(&rpc, sdk);
+
+    response = oms_wallet_alloc_rpc_response(
+        sizeof(*response),
+        (void (*)(void *))waas_wallet_get_transaction_status_response_init,
+        &rpc,
+        "failed to allocate GetTransactionStatus response");
+    if (!response)
+    {
+        goto cleanup;
+    }
+
+    params.txn_id = waas_strdup(txn_id);
+    if (txn_id && !params.txn_id)
+    {
+        oms_wallet_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "failed to prepare GetTransactionStatus request",
+            NULL);
+        goto cleanup;
+    }
+    request.get_transaction_status_request = &params;
+
+    if (oms_wallet_rpc_execute(
+            &rpc,
+            &request,
+            response,
+            oms_wallet_get_transaction_status_prepare_request,
+            oms_wallet_get_transaction_status_parse_response) != 0)
+    {
+        goto cleanup;
+    }
+
+    if (!response->transaction_status_response)
+    {
+        oms_wallet_set_waas_error(
+            &rpc.error,
+            "ClientError",
+            "missing GetTransactionStatus response payload",
+            NULL);
+        goto cleanup;
+    }
+
+cleanup:
+    waas_get_transaction_status_request_free(&params);
+    response = oms_wallet_finish_rpc_response(
+        response,
+        (void (*)(void *))waas_wallet_get_transaction_status_response_free,
+        &rpc,
+        "GetTransactionStatus");
     oms_wallet_rpc_context_free(&rpc);
     return response;
 }
@@ -380,13 +524,35 @@ void oms_wallet_free_sign_message(oms_wallet_sign_message_response_t *response)
     free(response);
 }
 
-void oms_wallet_free_send_transaction(oms_wallet_send_transaction_response_t *response)
+void oms_wallet_free_prepare_ethereum_transaction(oms_wallet_prepare_ethereum_transaction_response_t *response)
 {
     if (!response)
     {
         return;
     }
 
-    waas_wallet_send_transaction_response_free(response);
+    waas_wallet_prepare_ethereum_transaction_response_free(response);
+    free(response);
+}
+
+void oms_wallet_free_execute(oms_wallet_execute_response_t *response)
+{
+    if (!response)
+    {
+        return;
+    }
+
+    waas_wallet_execute_response_free(response);
+    free(response);
+}
+
+void oms_wallet_free_get_transaction_status(oms_wallet_get_transaction_status_response_t *response)
+{
+    if (!response)
+    {
+        return;
+    }
+
+    waas_wallet_get_transaction_status_response_free(response);
     free(response);
 }

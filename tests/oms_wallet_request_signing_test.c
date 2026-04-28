@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -268,21 +269,21 @@ static char *build_sign_message_payload(const char *wallet_id, const char *netwo
     return payload;
 }
 
-static char *build_send_transaction_payload(
+static char *build_prepare_transaction_payload(
     const char *wallet_id,
     const char *network,
     const char *to,
     const char *value
 )
 {
-    waas_send_transaction_request params;
-    waas_wallet_send_transaction_request request;
+    waas_prepare_ethereum_transaction_request params;
+    waas_wallet_prepare_ethereum_transaction_request request;
     waas_prepared_request prepared_request;
     waas_error error;
     char *payload = NULL;
 
-    waas_send_transaction_request_init(&params);
-    waas_wallet_send_transaction_request_init(&request);
+    waas_prepare_ethereum_transaction_request_init(&params);
+    waas_wallet_prepare_ethereum_transaction_request_init(&request);
     waas_prepared_request_init(&prepared_request);
     waas_error_init(&error);
 
@@ -291,30 +292,30 @@ static char *build_send_transaction_payload(
     params.to = waas_strdup(to);
     params.value = waas_strdup(value);
     params.mode = WAAS_TRANSACTION_MODE_RELAYER;
-    request.send_transaction_request = &params;
+    request.prepare_ethereum_transaction_request = &params;
 
     if ((network && !params.network) ||
         (wallet_id && !params.wallet_id) ||
         (to && !params.to) ||
         (value && !params.value) ||
-        waas_wallet_send_transaction_prepare_request(&request, &prepared_request, &error) != 0) {
-        fprintf(stderr, "failed to prepare send transaction payload: %s\n",
+        waas_wallet_prepare_ethereum_transaction_prepare_request(&request, &prepared_request, &error) != 0) {
+        fprintf(stderr, "failed to prepare ethereum transaction payload: %s\n",
             error.message ? error.message : "unknown error");
         exit(1);
     }
 
     expect_prepared_request_metadata(
-        "send transaction",
+        "prepare ethereum transaction",
         &prepared_request,
         "POST",
-        "/rpc/Wallet/SendTransaction",
+        "/rpc/Wallet/PrepareEthereumTransaction",
         "application/json");
 
     payload = copy_prepared_body(&prepared_request);
 
     waas_error_free(&error);
     waas_prepared_request_free(&prepared_request);
-    waas_send_transaction_request_free(&params);
+    waas_prepare_ethereum_transaction_request_free(&params);
     return payload;
 }
 
@@ -343,7 +344,7 @@ typedef struct {
     const char *network;
     const char *to;
     const char *value;
-} send_transaction_payload_context;
+} prepare_transaction_payload_context;
 
 typedef struct {
     const char *challenge;
@@ -394,10 +395,10 @@ static char *build_sign_message_payload_from_context(const void *ctx)
         payload_context->message);
 }
 
-static char *build_send_transaction_payload_from_context(const void *ctx)
+static char *build_prepare_transaction_payload_from_context(const void *ctx)
 {
-    const send_transaction_payload_context *payload_context = ctx;
-    return build_send_transaction_payload(
+    const prepare_transaction_payload_context *payload_context = ctx;
+    return build_prepare_transaction_payload(
         payload_context->wallet_id,
         payload_context->network,
         payload_context->to,
@@ -435,15 +436,35 @@ static void run_signing_vector(const signing_vector *vector)
     char label[128];
     char *answer = NULL;
     char *payload = vector->build_payload(vector->payload_context);
-    char *preimage = oms_wallet_build_wallet_request_preimage(
-        vector->endpoint,
-        vector->nonce,
-        payload);
-    char *digest = oms_wallet_request_preimage_digest_hex(preimage);
+    char metadata[64];
+    char path[128];
+    size_t preimage_len = 0;
+    char *preimage = NULL;
+    char *digest = NULL;
     char *address = oms_wallet_address_from_seckey(test_seckey);
-    char *signature = oms_wallet_sign_wallet_digest_hex_eip191(test_seckey, digest);
-    char *signature_from_preimage = oms_wallet_sign_wallet_request_preimage(test_seckey, preimage);
-    char *header = oms_wallet_build_wallet_authorization_header(
+    char *signature = NULL;
+    char *signature_from_preimage = NULL;
+    char *header = NULL;
+
+    snprintf(metadata, sizeof(metadata), "nonce: %s", vector->nonce);
+    snprintf(path, sizeof(path), "/rpc/Wallet%s", vector->endpoint);
+    preimage = oms_wallet_build_authorization_message(
+        "POST",
+        path,
+        metadata,
+        (const uint8_t *)payload,
+        strlen(payload),
+        &preimage_len);
+    digest = oms_wallet_request_preimage_digest_hex_bytes(
+        (const uint8_t *)preimage,
+        preimage_len);
+    signature = oms_wallet_sign_wallet_digest_hex_eip191(test_seckey, digest);
+    signature_from_preimage = oms_wallet_sign_wallet_request_preimage_bytes(
+        test_seckey,
+        (const uint8_t *)preimage,
+        preimage_len);
+    header = oms_wallet_build_wallet_authorization_header(
+        "ethereum-secp256k1",
         vector->scope,
         address,
         vector->nonce,
@@ -501,6 +522,26 @@ static void test_complete_auth_answer_hash_vector(void)
     free(payload);
 }
 
+static void test_authorization_message_rejects_size_overflow(void)
+{
+    const uint8_t body = 0;
+    size_t message_len = 0;
+    char *message = oms_wallet_build_authorization_message(
+        "POST",
+        "/rpc/Wallet/CreateWallet",
+        "nonce: 1",
+        &body,
+        SIZE_MAX,
+        &message_len);
+
+    if (message)
+    {
+        fprintf(stderr, "authorization message unexpectedly accepted overflowing size\n");
+        free(message);
+        exit(1);
+    }
+}
+
 int main(void)
 {
     static const commit_verifier_payload_context commit_verifier_context = {
@@ -514,12 +555,12 @@ int main(void)
     };
     static const sign_message_payload_context sign_message_context = {
         .wallet_id = "wallet-123",
-        .network = "amoy",
+        .network = "80002",
         .message = "hello"
     };
-    static const send_transaction_payload_context send_transaction_context = {
+    static const prepare_transaction_payload_context prepare_transaction_context = {
         .wallet_id = "wallet-123",
-        .network = "amoy",
+        .network = "80002",
         .to = "0xE5E8B483FfC05967FcFed58cc98D053265af6D99",
         .value = "1000"
     };
@@ -578,26 +619,26 @@ int main(void)
             .nonce = "1710000000",
             .endpoint = "/SignMessage",
             .scope = "@1:test",
-            .expected_payload = "{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
-            .expected_preimage = "POST /rpc/Wallet/SignMessage\nnonce: 1710000000\n\n{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
-            .expected_digest = "0x2677991ae3d7458ca5a6332f9a97bd9be243c141588315249d2a3ee8ad63a5b5",
+            .expected_payload = "{\"network\":\"80002\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
+            .expected_preimage = "POST /rpc/Wallet/SignMessage\nnonce: 1710000000\n\n{\"network\":\"80002\",\"walletId\":\"wallet-123\",\"message\":\"hello\"}",
+            .expected_digest = "0x29a8d52a8dfea23ba96f7125eb86249d117b80659b914531e7adbec23f0d7696",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b",
-            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000000,sig=\"0xdd1846c9b0cf22224e3f4d48d69697cddf85d9cc0d3bc07e2000f056c7dd904f35bfee21ff04a8d1e2f21a914bc1599a2cd66a23e0f352046d811cbb7cd7bf0b1b\""
+            .expected_signature = "0x049a8ee7e742acc50f9740d2cf1f81244550861ba23b1c8aefc7b5b4faacd58d30879065571f458015c09c6d028d770beeb1d9648bfa9d1a5aeeac02111294e91c",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000000,sig=\"0x049a8ee7e742acc50f9740d2cf1f81244550861ba23b1c8aefc7b5b4faacd58d30879065571f458015c09c6d028d770beeb1d9648bfa9d1a5aeeac02111294e91c\""
         },
         {
-            .name = "send transaction",
-            .build_payload = build_send_transaction_payload_from_context,
-            .payload_context = &send_transaction_context,
+            .name = "prepare ethereum transaction",
+            .build_payload = build_prepare_transaction_payload_from_context,
+            .payload_context = &prepare_transaction_context,
             .nonce = "1710000001",
-            .endpoint = "/SendTransaction",
+            .endpoint = "/PrepareEthereumTransaction",
             .scope = "@1:test",
-            .expected_payload = "{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
-            .expected_preimage = "POST /rpc/Wallet/SendTransaction\nnonce: 1710000001\n\n{\"network\":\"amoy\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
-            .expected_digest = "0x0e6f40130b1d5f1f569d41e529062b5fc077beadae4c5abfc06ae62e258d6009",
+            .expected_payload = "{\"network\":\"80002\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
+            .expected_preimage = "POST /rpc/Wallet/PrepareEthereumTransaction\nnonce: 1710000001\n\n{\"network\":\"80002\",\"walletId\":\"wallet-123\",\"to\":\"0xE5E8B483FfC05967FcFed58cc98D053265af6D99\",\"value\":\"1000\",\"mode\":\"relayer\"}",
+            .expected_digest = "0x59696d693931c348d8f1b508b21a5ec896bac14d4f485762dfa6c0cb093ec6c8",
             .expected_address = "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a",
-            .expected_signature = "0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c",
-            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000001,sig=\"0x929447ac2d417b51d0f6c18699871736e8e82e3e5c1e9f4e475ace34974127b16adfa4c611155be312f3ee05362095e7a17186ab97a4bdb55338ba33846aac6a1c\""
+            .expected_signature = "0x2990168d92252af6bbdc92da23d07b07f54bdb86f0dee60591798d019f0edd535630b43581aa5959cd62c40f589e1c3e25fa1f5159130e76bf2437d8b9eacb4c1b",
+            .expected_header = "Authorization: ethereum-secp256k1 scope=\"@1:test\",cred=\"0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\",nonce=1710000001,sig=\"0x2990168d92252af6bbdc92da23d07b07f54bdb86f0dee60591798d019f0edd535630b43581aa5959cd62c40f589e1c3e25fa1f5159130e76bf2437d8b9eacb4c1b\""
         },
         {
             .name = "complete auth",
@@ -621,6 +662,7 @@ int main(void)
     }
 
     test_complete_auth_answer_hash_vector();
+    test_authorization_message_rejects_size_overflow();
     printf("oms_wallet_request_signing_test passed\n");
     return 0;
 }

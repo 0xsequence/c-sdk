@@ -1,7 +1,7 @@
 #include "oms_wallet_request_signing.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "evm/eoa_wallet.h"
 #include "evm/keccak256.h"
@@ -9,26 +9,95 @@
 #include "utils/hex_utils.h"
 #include "utils/string_utils.h"
 
-char *oms_wallet_build_wallet_request_preimage(
-    const char *endpoint,
-    const char *nonce,
-    const char *payload
-)
+static int checked_add_size(size_t *acc, size_t value)
 {
-    const char *tmpl = "POST /rpc/Wallet{0}\nnonce: {1}\n\n{2}";
-    const char *args[] = {endpoint, nonce, payload};
-    return format_placeholders(tmpl, args, 3);
+    if (!acc || value > SIZE_MAX - *acc) {
+        return -1;
+    }
+
+    *acc += value;
+    return 0;
 }
 
-char *oms_wallet_request_preimage_digest_hex(const char *preimage)
+char *oms_wallet_build_authorization_message(
+    const char *method,
+    const char *path,
+    const char *metadata,
+    const uint8_t *body,
+    size_t body_len,
+    size_t *out_message_len
+)
 {
-    uint8_t digest[32];
+    char *message;
+    size_t method_len;
+    size_t path_len;
+    size_t metadata_len;
+    size_t total_len;
+    size_t off = 0;
 
-    if (!preimage) {
+    if (!method || !path || !metadata || (!body && body_len != 0)) {
         return NULL;
     }
 
-    keccak256((const uint8_t *)preimage, strlen(preimage), digest);
+    method_len = strlen(method);
+    path_len = strlen(path);
+    metadata_len = strlen(metadata);
+    total_len = 0;
+    if (checked_add_size(&total_len, method_len) != 0 ||
+        checked_add_size(&total_len, 1) != 0 ||
+        checked_add_size(&total_len, path_len) != 0 ||
+        checked_add_size(&total_len, 1) != 0 ||
+        checked_add_size(&total_len, metadata_len) != 0 ||
+        checked_add_size(&total_len, 2) != 0 ||
+        checked_add_size(&total_len, body_len) != 0 ||
+        checked_add_size(&total_len, 1) != 0) {
+        return NULL;
+    }
+
+    message = malloc(total_len);
+    if (!message) {
+        return NULL;
+    }
+
+    memcpy(message + off, method, method_len);
+    off += method_len;
+    message[off++] = ' ';
+    memcpy(message + off, path, path_len);
+    off += path_len;
+    message[off++] = '\n';
+    memcpy(message + off, metadata, metadata_len);
+    off += metadata_len;
+    message[off++] = '\n';
+    message[off++] = '\n';
+    if (body_len > 0) {
+        memcpy(message + off, body, body_len);
+        off += body_len;
+    }
+    message[off] = '\0';
+
+    if (out_message_len) {
+        *out_message_len = total_len - 1;
+    }
+    return message;
+}
+
+char *oms_wallet_request_preimage_digest_hex_bytes(
+    const uint8_t *preimage,
+    size_t preimage_len
+)
+{
+    static const uint8_t empty_preimage = 0;
+    uint8_t digest[32];
+
+    if (!preimage && preimage_len != 0) {
+        return NULL;
+    }
+
+    if (!preimage) {
+        preimage = &empty_preimage;
+    }
+
+    keccak256(preimage, preimage_len, digest);
     return bytes_to_hex(digest, sizeof(digest));
 }
 
@@ -71,15 +140,16 @@ char *oms_wallet_sign_wallet_digest_hex_eip191(
     return signature;
 }
 
-char *oms_wallet_sign_wallet_request_preimage(
+char *oms_wallet_sign_wallet_request_preimage_bytes(
     const uint8_t seckey32[32],
-    const char *preimage
+    const uint8_t *preimage,
+    size_t preimage_len
 )
 {
     char *digest_hex;
     char *signature;
 
-    digest_hex = oms_wallet_request_preimage_digest_hex(preimage);
+    digest_hex = oms_wallet_request_preimage_digest_hex_bytes(preimage, preimage_len);
     if (!digest_hex) {
         return NULL;
     }
@@ -90,14 +160,15 @@ char *oms_wallet_sign_wallet_request_preimage(
 }
 
 char *oms_wallet_build_wallet_authorization_header(
+    const char *key_type,
     const char *scope,
-    const char *address,
+    const char *credential,
     const char *nonce,
     const char *signature
 )
 {
     const char *header_template =
-        "Authorization: ethereum-secp256k1 scope=\"{0}\",cred=\"{1}\",nonce={2},sig=\"{3}\"";
-    const char *header_args[] = {scope, address, nonce, signature};
-    return format_placeholders(header_template, header_args, 4);
+        "Authorization: {0} scope=\"{1}\",cred=\"{2}\",nonce={3},sig=\"{4}\"";
+    const char *header_args[] = {key_type, scope, credential, nonce, signature};
+    return format_placeholders(header_template, header_args, 5);
 }

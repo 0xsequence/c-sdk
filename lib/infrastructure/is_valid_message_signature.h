@@ -1,6 +1,7 @@
 #ifndef OMS_WALLET_IS_VALID_MESSAGE_SIGNATURE_H
 #define OMS_WALLET_IS_VALID_MESSAGE_SIGNATURE_H
 
+#include "wallet/oms_wallet_config.h"
 #include <stdbool.h>
 
 typedef struct {
@@ -9,6 +10,7 @@ typedef struct {
 } OmsWalletIsValidMessageSignatureReturn;
 
 OmsWalletIsValidMessageSignatureReturn *oms_wallet_is_valid_message_signature(
+    oms_wallet_sdk_t *sdk,
     const char *chain_id,
     const char *wallet_address,
     const char *message,

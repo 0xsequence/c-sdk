@@ -268,6 +268,42 @@ int secure_store_delete_seckey(void)
     return keychain_delete("seckey");
 }
 
+int secure_store_write_string_at(const char *storage_dir, const char *key, const char *value)
+{
+    (void)storage_dir;
+    return secure_store_write_string(key, value);
+}
+
+int secure_store_read_string_at(const char *storage_dir, const char *key, char **value)
+{
+    (void)storage_dir;
+    return secure_store_read_string(key, value);
+}
+
+int secure_store_delete_at(const char *storage_dir, const char *key)
+{
+    (void)storage_dir;
+    return secure_store_delete(key);
+}
+
+int secure_store_write_seckey_at(const char *storage_dir, const uint8_t seckey[32])
+{
+    (void)storage_dir;
+    return secure_store_write_seckey(seckey);
+}
+
+int secure_store_read_seckey_at(const char *storage_dir, uint8_t seckey[32])
+{
+    (void)storage_dir;
+    return secure_store_read_seckey(seckey);
+}
+
+int secure_store_delete_seckey_at(const char *storage_dir)
+{
+    (void)storage_dir;
+    return secure_store_delete_seckey();
+}
+
 int secure_store_status_is_not_found(int status)
 {
     return status == errSecItemNotFound;
